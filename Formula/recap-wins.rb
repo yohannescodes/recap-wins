@@ -11,11 +11,7 @@ class RecapWins < Formula
   desc "See what your branch introduced — vitals, feature lists, PR & store notes"
   homepage "https://github.com/yohannescodes/recap-wins"
   url "https://github.com/yohannescodes/recap-wins/archive/refs/tags/v0.1.0.tar.gz"
-  # The v0.1.0 tag exists, but the source-tarball sha256 can only be computed
-  # from the PUBLIC archive URL — fill it once the repo is public (the tap needs
-  # a public repo to resolve this URL anyway). Run scripts/release.sh or:
-  #   curl -fsSL <url above> | shasum -a 256
-  sha256 "PENDING_PUBLIC_RELEASE_see_docs_RELEASING_md"
+  sha256 "771b7dde6768401a7e84cd0269621e1604b4b085dcba770a8e6d32481e67e02f"
   license "MIT"
   head "https://github.com/yohannescodes/recap-wins.git", branch: "main"
 
