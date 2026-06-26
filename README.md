@@ -22,7 +22,7 @@ See [`docs/recap-wins-PRD.md`](docs/recap-wins-PRD.md) for the full product spec
 | **Provider switching** — `anthropic` (API) and `skill` (key-free) backends | ✅ done |
 | **Agent-skill packaging** — `SKILL.md` + runner, droppable into any skill-aware agent | ✅ done |
 | **Marketing** — `market` content pack in a product's voice | ✅ done |
-| **Gemini provider** — second API backend | 🔜 next |
+| **Gemini provider** — second API backend (`--provider gemini`) | ✅ done |
 | **Localization, multi-repo** — per-locale store copy; `--all-repos` digest | ⏳ later |
 
 The deterministic core is fully offline and needs no key. The semantic commands
@@ -81,7 +81,7 @@ by `provider` in `testthese.toml` or the `--provider` flag (flag wins):
 |---|---|---|
 | `anthropic` *(default)* | yes | Calls the Anthropic API directly and prints the prose |
 | `skill` | **no** | Emits a JSON envelope for a host agent (Claude Code, Cowork) to complete — the host agent is the model |
-| `gemini` | — | Reserved; not yet implemented |
+| `gemini` | yes | Calls the Google Gemini API (`GEMINI_API_KEY`) |
 
 **Skill mode — no API key, no network.** `rw` does the deterministic work and
 hands the agent a prompt + the grounded change report to write the prose. If you
@@ -93,12 +93,16 @@ rw new   --provider skill            # emits a JSON envelope for the host agent
 rw notes --asc-update --product ledgerly --provider skill
 ```
 
-**API mode.** Provide a key via the `ANTHROPIC_API_KEY` environment variable
-(preferred) or `api_key` in `testthese.toml` — the env var wins.
+**API mode.** Provide a key via the provider's environment variable —
+`ANTHROPIC_API_KEY` or `GEMINI_API_KEY` (preferred) — or `api_key` in
+`testthese.toml`; the env var wins. Switch backend with `--provider gemini` (or
+set `provider` in config); with Gemini selected and the default model left as-is,
+`rw` uses a Gemini default model automatically.
 
 ```sh
 export ANTHROPIC_API_KEY=sk-ant-...
 rw new --base main
+rw new --provider gemini             # uses GEMINI_API_KEY + a Gemini model
 rw notes --pr                              # technical PR description, uncapped
 rw notes --asc-update --product ledgerly   # App Store "What's New", in voice, ≤4000
 rw notes --gp-update  --product ledgerly --limit 300   # tighter Play note
@@ -163,19 +167,19 @@ Two cleanly separated layers (PRD §5):
   classifies commits, and builds the `change_report.json`. No model, no network.
   This same core backs the standalone CLI *and* (via skill mode) a host agent.
 - **`SemanticKit`** — the semantic layer. Consumes a `ChangeReport` and renders
-  prose through a pluggable **provider**: `anthropic` (hand-rolled `URLSession`,
-  zero deps), `skill` (emits a JSON envelope for a host agent — no key, no
-  network), or `gemini` (reserved). Depends on `RecapCore`, never the reverse —
-  the core stays offline. The API call sits behind a `ModelClient` protocol so
-  tests inject a mock and CI needs no key.
+  prose through a pluggable **provider**: `anthropic` and `gemini` (hand-rolled
+  `URLSession`, zero deps), or `skill` (emits a JSON envelope for a host agent —
+  no key, no network). Depends on `RecapCore`, never the reverse — the core stays
+  offline. The API call sits behind a `ModelClient` protocol so tests inject a
+  mock and CI needs no key; a new provider plugs into one factory method.
 - **`rw`** — the command-line front end over `RecapCore` + `SemanticKit`.
 
 ## What's coming next
 
 Roadmap, in order (full detail in the [PRD](docs/recap-wins-PRD.md) §11):
 
-1. **Gemini provider** — a second API backend behind the existing provider seam,
-   so you can switch models/providers from config.
+1. **Distribution** — a Homebrew tap / install story so `rw` is a one-command
+   install rather than build-from-source.
 2. **Localization** — per-locale variants of the user-facing outputs, with
    per-language store caps re-checked (translations routinely overflow a limit
    the English version cleared).

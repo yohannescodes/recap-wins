@@ -218,14 +218,16 @@ enum HelpText {
         \(cmd("provider")) config key or the \(cmd("--provider")) flag \(dim("(flag wins)")):
 
           \(cmd("anthropic"))  \(dim("(default)"))  Calls the Anthropic API and prints the prose.
-                          Needs a key; billed pay-as-you-go.
+                          Needs ANTHROPIC_API_KEY; billed pay-as-you-go.
+          \(cmd("gemini"))                Calls the Google Gemini API. Needs GEMINI_API_KEY.
           \(cmd("skill"))                 Emits JSON for a host agent (Claude Code, Cowork)
                           to complete. \(h("No key, no network")) — the agent is the model.
-          \(cmd("gemini"))                Reserved; not yet implemented.
 
-        \(h("API KEY")) \(dim("(anthropic only)"))
-          Set ANTHROPIC_API_KEY \(dim("(preferred)")) or api_key in testthese.toml.
-          The environment variable wins.
+        \(h("API KEY")) \(dim("(anthropic / gemini)"))
+          Set the provider's env var — ANTHROPIC_API_KEY or GEMINI_API_KEY
+          \(dim("(preferred)")) — or api_key in testthese.toml. The env var wins. With
+          gemini selected and the default model left as-is, rw uses a Gemini
+          default model automatically.
 
         \(h("WHICH TO USE"))
           If you already pay for Claude through a plan, \(cmd("--provider skill")) is the

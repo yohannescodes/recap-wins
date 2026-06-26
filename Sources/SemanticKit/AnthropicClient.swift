@@ -37,22 +37,24 @@ public protocol ModelClient: Sendable {
 
 /// Errors from the Anthropic transport.
 public enum ModelError: Error, CustomStringConvertible, Equatable {
-    case missingAPIKey
+    case missingAPIKey(provider: Provider)
     case requestFailed(status: Int, body: String)
     case malformedResponse(String)
     case transport(String)
 
     public var description: String {
         switch self {
-        case .missingAPIKey:
-            return "No Anthropic API key. Set ANTHROPIC_API_KEY or configure it in testthese.toml."
+        case let .missingAPIKey(provider):
+            let envVar = ModelConfig.apiKeyEnvVar(for: provider)
+            let name = provider == .gemini ? "Gemini" : "Anthropic"
+            return "No \(name) API key. Set \(envVar) or configure api_key in testthese.toml."
         case let .requestFailed(status, body):
             let detail = body.trimmingCharacters(in: .whitespacesAndNewlines)
-            return "Anthropic API request failed (HTTP \(status))\(detail.isEmpty ? "" : ": \(detail)")"
+            return "Model API request failed (HTTP \(status))\(detail.isEmpty ? "" : ": \(detail)")"
         case let .malformedResponse(detail):
-            return "Could not parse Anthropic API response: \(detail)"
+            return "Could not parse the model API response: \(detail)"
         case let .transport(detail):
-            return "Network error talking to Anthropic API: \(detail)"
+            return "Network error talking to the model API: \(detail)"
         }
     }
 }

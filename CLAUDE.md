@@ -52,11 +52,13 @@ here; the semantic layer consumes it.
   `--pr`, `--asc-reviewer`, `--what-new`, `--asc-update`, `--gp-update`), with
   product-voice rendering and a TTL-cached `limits.json` cap manifest (offline
   fallback baked in; `--refresh-limits`, `--limit`).
-- **Phase 3 (done):** pluggable providers — `anthropic` (API), `skill` (key-free,
-  emits JSON for a host agent), `gemini` (reserved), selected by `provider`
-  config / `--provider`; **and** the agent-skill package in `skill/` (`SKILL.md`
-  + `scripts/recap-wins.sh`). The runner calls `rw` in skill mode and the host
-  agent writes the prose. Install: copy `skill/` → `~/.claude/skills/recap-wins/`.
+- **Phase 3 (done):** pluggable providers — `anthropic` and `gemini` (both
+  hand-rolled `URLSession`), and `skill` (key-free, emits JSON for a host agent),
+  selected by `provider` config / `--provider`. Keys: `ANTHROPIC_API_KEY` /
+  `GEMINI_API_KEY` env (per-provider) then config `api_key`. New providers plug
+  into `ModelConfig.makeClient(for:)`. **And** the agent-skill package in `skill/`
+  (`SKILL.md` + `scripts/recap-wins.sh`); install: copy `skill/` →
+  `~/.claude/skills/recap-wins/`.
 - **Phase 2 (done):** `rw market` — a marketing content pack (What's New, promo
   text, subtitle, GP short description, post, tweet) in a product's voice, each
   within its `[market.limits]` cap. Distinct from store-update `notes`; works in

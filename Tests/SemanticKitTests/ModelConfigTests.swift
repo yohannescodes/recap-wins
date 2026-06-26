@@ -35,7 +35,7 @@ struct ModelConfigTests {
 
     @Test("throws missingAPIKey when neither is set")
     func missing() {
-        #expect(throws: ModelError.missingAPIKey) {
+        #expect(throws: ModelError.missingAPIKey(provider: .anthropic)) {
             try ModelConfig.resolveAPIKey(config: Config(), environment: [:])
         }
     }

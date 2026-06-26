@@ -4,19 +4,22 @@
 # Default base ref to diff against. --base on the command line overrides this.
 base = "main"
 
-# Model used by the semantic commands (`new`, `notes`) in API mode.
+# Model for the semantic commands in API mode. Leave the Anthropic default and
+# switch provider to "gemini" and rw uses a Gemini default model automatically;
+# or set an explicit model id for whichever provider you choose.
 model = "claude-sonnet-4-6"
 
 # Which backend writes the prose. --provider on the command line overrides this.
-#   "anthropic" — call the Anthropic API directly (needs a key; pay-as-you-go).
+#   "anthropic" — call the Anthropic API directly (needs ANTHROPIC_API_KEY).
+#   "gemini"    — call the Google Gemini API (needs GEMINI_API_KEY).
 #   "skill"     — emit JSON for a host agent (Claude Code, Cowork) to complete.
 #                 No API key, no network: the host agent IS the model. This is
 #                 the key-free path if you already pay for Claude via a plan.
-#   "gemini"    — reserved, not yet implemented.
 provider = "anthropic"
 
-# API key. PREFER the ANTHROPIC_API_KEY environment variable over committing a
-# key here — the env var takes precedence and keeps secrets out of the repo.
+# API key. PREFER the per-provider environment variable (ANTHROPIC_API_KEY or
+# GEMINI_API_KEY) over committing a key here — the env var takes precedence and
+# keeps secrets out of the repo.
 # api_key = "sk-ant-..."
 
 # Store-cap manifest (PRD §6.1): caps are fetched + cached with a TTL, not
