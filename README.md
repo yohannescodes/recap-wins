@@ -1,33 +1,46 @@
 # recap-wins
 
-> See what your branch introduced — offline, instant, and trustworthy.
+> You shipped the branch. Now write the PR, the release notes, the tweet. `rw` does that part.
 
-`recap-wins` (binary: `rw`) is a local, terminal-first tool that reads the diff
-between your current branch and a base ref, reassembles what actually changed,
-and renders it into the artifacts you need to ship. It's the *inbound*
-counterpart to a public changelog: it runs **before or at** merge and writes for
-*you, the shipper*.
+You're shipping fast — maybe across more than one product. Your tracker has the
+*plan*, but the record of what actually landed drifts: issue titles don't match
+what shipped, hotfixes land with no ticket, and a finished branch is a wall of
+commits you have to mentally reassemble before you can review it, write the PR,
+or announce it.
 
-It's language-agnostic — it operates on `git`, not on any one language — so it
-works identically across every repo.
+You already produce the source of truth just by working — the commits and the
+diff. `recap-wins` (the `rw` command) reads that and does the reassembly for you.
+Point it at a branch and it tells you what you actually shipped — then turns it
+into whatever you need to ship it:
 
-## Status
+```sh
+rw                    # what changed on this branch — counts, hotspots, risk flags
+rw new                # the list of features you actually added
+rw notes --pr         # a PR description, ready to paste
+rw market             # launch copy — App Store text, a post, a tweet
+```
 
-| Area | State |
-|---|---|
-| **Deterministic core** — `change_report.json`, `vitals`, `many`, `blame`, `branch` (offline) | ✅ done |
-| **Semantic commands** — `new`, `notes` (all five targets) with product voice + store caps | ✅ done |
-| **Provider switching** — `anthropic` (API) and `skill` (key-free) backends | ✅ done |
-| **Agent-skill packaging** — `SKILL.md` + runner, droppable into any skill-aware agent | ✅ done |
-| **Marketing** — `market` content pack in a product's voice | ✅ done |
-| **Gemini provider** — second API backend (`--provider gemini`) | ✅ done |
-| **Distribution** — Homebrew tap, `brew install recap-wins` | ✅ done |
-| **Localization, multi-repo** — per-locale store copy; `--all-repos` digest | ⏳ later |
+It runs on your machine and reads from `git`, so it works the same in any repo
+regardless of language. The first command (`rw`) is pure git: no network, no API
+key. The other three write prose, so they use a model — your own key, or an
+agent you already pay for (more on that below).
 
-The deterministic core is fully offline and needs no key. The semantic commands
-turn the change report into prose either by calling an API (`anthropic`) or by
-emitting JSON for a host agent to complete (`skill` — no key, no network). See
-[What's coming next](#whats-coming-next) for the roadmap.
+## What you get
+
+Two kinds of output, depending on the command:
+
+- **The facts** — counts, hotspots, who-touched-what, risk flags. Pure git, no
+  AI. Always offline, always free, instant.
+- **The writing** — PR descriptions, release notes, marketing copy. This part
+  uses a model. You can run it through your own Anthropic or Gemini key, or — if
+  you already use an agent like Claude Code — through that, with **no key and no
+  per-call cost** (see [Skill mode](#agent-skill-no-api-key)).
+
+So the "what did I change" half costs nothing and never leaves your machine. You
+only reach for a key when you want it to do the writing too.
+
+There's a dedicated release page at **[novarch.lol](https://novarch.lol)** with
+downloads and the latest version.
 
 ## Install
 
@@ -57,49 +70,55 @@ ln -s "$PWD/.build/release/rw" /usr/local/bin/rw
 
 ## Commands
 
-All commands operate on a **change set**: the diff between a head ref (default:
-current branch) and a base ref (default: `main`).
+Every command compares two points in your repo: your current branch against a
+base (`main` by default). Change the base with `--base <ref>` whenever you need
+to diff against something else.
 
-| Command | What it does | Mode |
+| Command | What it does | Needs a key? |
 |---|---|---|
-| `rw` *(default)* | The **vitals** dashboard — a one-screen health read of the change set | offline |
-| `rw new` | List the new *features* you introduced, filtering out chores/refactors | semantic |
-| `rw notes <target>` | Write a review/release note for a target (PR, App Review, TestFlight/Play, store update) | semantic |
-| `rw market --product <id>` | Generate a marketing content pack (What's New, promo text, subtitle, post, tweet…) in the product's voice | semantic |
-| `rw many` | Count features / fixes / chores introduced (conventional-commit parse) | offline |
-| `rw blame` | Attribute who changed what across the change set | offline |
-| `rw branch` | Show which branches contributed commits to this change set | offline |
+| `rw` *(default)* | One screen on what changed — counts, hotspots, risk flags | no |
+| `rw new` | The list of features you added, with the chores filtered out | yes* |
+| `rw notes <target>` | Writes a note for one target: a PR, App Review, TestFlight/Play, or a store update | yes* |
+| `rw market --product <id>` | A pack of launch copy — What's New, promo text, subtitle, a post, a tweet | yes* |
+| `rw many` | Just the counts: features / fixes / chores | no |
+| `rw blame` | Who changed what | no |
+| `rw branch` | Which branches fed into this change | no |
 | `rw help [topic]` | The built-in guide — `concepts`, `notes`, `providers`, `skill`, `config` | — |
 
-Shared flags: `--base <ref>`, `--head <ref>`, `--repo <path>`, and `--json`
-(emit the raw `change_report.json` instead of the formatted view).
+<sub>* …or run it key-free through an agent — see [Skill mode](#agent-skill-no-api-key).</sub>
+
+Useful shared flags: `--base <ref>` / `--head <ref>` to pick what you're
+comparing, `--repo <path>` to run against another checkout, and `--json` to get
+the raw machine-readable report instead of the formatted view.
 
 New to `rw`? Run **`rw help`** for the in-terminal guide, or read the full
 [**User Guide**](docs/GUIDE.md).
 
 ```sh
-rw --base main             # vitals for the current branch vs main
-rw many --base develop     # feature/fix/chore counts vs develop
-rw --json > report.json    # the structured change report
-rw new                     # semantic: list the new features (needs an API key)
-rw notes --pr              # semantic: a PR description
+rw --base main             # what changed on this branch vs main
+rw many --base develop     # just the feature/fix/chore counts vs develop
+rw --json > report.json    # the raw report, for piping into something else
+rw new                     # the features you added (needs a key, or skill mode)
+rw notes --pr              # a PR description
 ```
 
-### Semantic commands (`new`, `notes`)
+### The commands that write for you (`new`, `notes`, `market`)
 
-These turn the change report into prose. They run through a **provider**, chosen
-by `provider` in `testthese.toml` or the `--provider` flag (flag wins):
+These three turn your changes into prose, and that needs a model. You pick where
+the model comes from — your own API key, or an agent you already pay for:
 
-| Provider | Needs a key? | What it does |
+| Where the writing comes from | Needs a key? | When to use it |
 |---|---|---|
-| `anthropic` *(default)* | yes | Calls the Anthropic API directly and prints the prose |
-| `skill` | **no** | Emits a JSON envelope for a host agent (Claude Code, Cowork) to complete — the host agent is the model |
-| `gemini` | yes | Calls the Google Gemini API (`GEMINI_API_KEY`) |
+| `anthropic` *(default)* | yes | You have an Anthropic key and just want output, now |
+| `gemini` | yes | You'd rather use Google's Gemini (`--provider gemini`) |
+| `skill` | **no** | You use an agent like Claude Code — let it do the writing, free |
 
-**Skill mode — no API key, no network.** `rw` does the deterministic work and
-hands the agent a prompt + the grounded change report to write the prose. If you
-already pay for Claude through a plan, this routes the model work through your
-agent session at no extra cost:
+Set it with `--provider` on the command, or `provider` in your config file (the
+flag wins).
+
+**Skill mode — no key, no network.** `rw` does the git work itself and hands the
+agent the facts plus a prompt; the agent writes the prose. If you already pay for
+Claude through a plan, this is the model work at no extra cost:
 
 ```sh
 rw new   --provider skill            # emits a JSON envelope for the host agent
@@ -125,10 +144,16 @@ rw market --product ledgerly --pieces tweet,post   # just the social pieces
 
 `rw market` produces a **pack** of marketing pieces for the new features —
 What's New, App Store promotional text / subtitle, Google Play short description,
-a social post, and a tweet — each in the product's voice and within its store
-metadata cap (warns on overflow, never truncates). It's distinct from
-`rw notes --asc-update`, which emits the store-native release-note block; `market`
-is the broader announcement set. Pick specific pieces with `--pieces`.
+a social post, and a tweet — each within its store metadata cap (warns on
+overflow, never truncates). Pick specific pieces with `--pieces`.
+
+The point of `--product` is **voice**. If you ship more than one app, each has
+its own tone, and copy that sounds like the wrong one is worse than no copy. You
+describe each product's voice once in config — *"clear, trustworthy,
+private-by-default"* for a finance app; *"calm, reflective"* for a journaling
+one — and `market` writes in it, so a Ledgerly update never reads like a DOTS
+update. It's distinct from `rw notes --asc-update`, which emits the store-native
+release-note block; `market` is the broader announcement set.
 
 Copy [`testthese.toml.example`](testthese.toml.example) to `testthese.toml` to
 configure the base ref, model, provider, and product profiles.
@@ -163,29 +188,27 @@ PATH (or builds it); set `RW_BIN` to point at a specific binary.
 This is the same engine as the CLI — the deterministic core produces the report,
 and in skill mode the host agent is the model. See [`skill/SKILL.md`](skill/SKILL.md).
 
-## What the vitals show (PRD §7)
+## What `rw` (on its own) tells you
 
-- Features / fixes / chores introduced
-- Files changed, insertions / deletions
-- Contributors and branches involved
-- **Hotspots** — the few files with the largest churn
-- **Risk flags** (advisory) — large diff, core/shared files touched, source
-  changed with no tests alongside. A nudge, never a gate.
+The bare `rw` is the one you'll run most — a one-screen read on the branch
+before you write anything:
 
-## Architecture
+- How many features, fixes, and chores you introduced
+- Files changed, lines added and removed
+- Who touched it and which branches fed in
+- **Hotspots** — the handful of files that soaked up the most churn
+- **Risk flags** — a heads-up when a diff is huge, touches core files, or adds
+  code with no tests. A nudge, never a blocker.
 
-Two cleanly separated layers (PRD §5):
+## Under the hood
 
-- **`RecapCore`** — the deterministic library. Shells out to system `git`,
-  classifies commits, and builds the `change_report.json`. No model, no network.
-  This same core backs the standalone CLI *and* (via skill mode) a host agent.
-- **`SemanticKit`** — the semantic layer. Consumes a `ChangeReport` and renders
-  prose through a pluggable **provider**: `anthropic` and `gemini` (hand-rolled
-  `URLSession`, zero deps), or `skill` (emits a JSON envelope for a host agent —
-  no key, no network). Depends on `RecapCore`, never the reverse — the core stays
-  offline. The API call sits behind a `ModelClient` protocol so tests inject a
-  mock and CI needs no key; a new provider plugs into one factory method.
-- **`rw`** — the command-line front end over `RecapCore` + `SemanticKit`.
+If you want to hack on it: `rw` is two Swift packages. **`RecapCore`** does all
+the git work and builds the structured report — no model, no network, ever.
+**`SemanticKit`** takes that report and writes the prose through whichever
+provider you picked (`anthropic`, `gemini`, or `skill`). The core never depends
+on the semantic layer, so the "what changed" half stays offline by design.
+Adding a new provider is one method. Tests run against throwaway git repos and a
+mock model, so CI needs no key.
 
 ## What's coming next
 
