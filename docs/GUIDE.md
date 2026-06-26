@@ -25,6 +25,21 @@ This document is the long-form version of the same material.
 
 ## 1. Install
 
+### Homebrew (recommended)
+
+The repo is its own tap — one command installs the `rw` binary:
+
+```sh
+brew tap yohannescodes/recap-wins https://github.com/yohannescodes/recap-wins
+brew install recap-wins
+```
+
+Upgrade later with `brew upgrade recap-wins`. The formula builds from source, so
+the first install compiles via Swift and takes a minute. Then skip to §2 — `rw`
+is already on your PATH.
+
+### From source
+
 Requires Swift 6 and a recent macOS.
 
 ```sh

@@ -63,8 +63,12 @@ here; the semantic layer consumes it.
   text, subtitle, GP short description, post, tweet) in a product's voice, each
   within its `[market.limits]` cap. Distinct from store-update `notes`; works in
   every provider mode incl. skill (emits one envelope per piece).
-- Phase 4: localization. Phase 5: multi-repo (paid open-core line). Gemini
-  provider (fill the reserved slot) is the next net-new.
+- **Gemini provider (done):** `--provider gemini` via `GeminiClient`; see the
+  Phase 3 note above.
+- **Distribution (done):** Homebrew tap — the repo is its own tap. Formula at
+  `Formula/recap-wins.rb` builds from a source tag; `scripts/release.sh` cuts a
+  tag and prints the formula's url+sha256. Process: `docs/RELEASING.md`.
+- Phase 4: localization. Phase 5: multi-repo (paid open-core line).
 
 ## Conventions
 
