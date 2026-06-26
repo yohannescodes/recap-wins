@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/recap-wins-hero.png" alt="recap-wins — you shipped the branch, now write the PR, the release notes, the tweet. rw does that part." width="100%">
+</p>
+
 # recap-wins
 
 > You shipped the branch. Now write the PR, the release notes, the tweet. `rw` does that part.
