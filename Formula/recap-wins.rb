@@ -10,8 +10,8 @@
 class RecapWins < Formula
   desc "See what your branch introduced — vitals, feature lists, PR & store notes"
   homepage "https://github.com/yohannescodes/recap-wins"
-  url "https://github.com/yohannescodes/recap-wins/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "771b7dde6768401a7e84cd0269621e1604b4b085dcba770a8e6d32481e67e02f"
+  url "https://github.com/yohannescodes/recap-wins/archive/refs/tags/v0.1.1.tar.gz"
+  sha256 "PENDING_TAG_v0.1.1"
   license "MIT"
   head "https://github.com/yohannescodes/recap-wins.git", branch: "main"
 
@@ -25,7 +25,7 @@ class RecapWins < Formula
 
   test do
     # The binary reports its version and the offline help renders without a repo.
-    assert_match "0.1.0", shell_output("#{bin}/rw --version")
+    assert_match "0.1.1", shell_output("#{bin}/rw --version")
     assert_match "recap-wins", shell_output("#{bin}/rw help")
   end
 end
