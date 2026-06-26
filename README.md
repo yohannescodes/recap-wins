@@ -59,12 +59,51 @@ current branch) and a base ref (default: `main`).
 Shared flags: `--base <ref>`, `--head <ref>`, `--repo <path>`, and `--json`
 (emit the raw `change_report.json` instead of the formatted view).
 
+### Analyzing a repo (offline)
+
+A **change set** is the diff between a **head** ref and a **base** ref, in some
+**repo** — three independent knobs:
+
+| Knob | Flag | Default | Meaning |
+|---|---|---|---|
+| Repo | `--repo <path>` | current directory | which git repo to read |
+| Base | `--base <ref>` | `main` | what you compare *against* |
+| Head | `--head <ref>` | `HEAD` (current branch) | what you compare |
+
+So `rw many --base develop` means: *in the repo I'm in, count what my current
+branch added on top of `develop`.*
+
+The offline commands (`rw`, `many`, `blame`, `branch`, and `--json` on anything)
+need **no API key and never touch the network** — they read your local git only.
+
 ```sh
-rw --base main             # vitals for the current branch vs main
-rw many --base develop     # feature/fix/chore counts vs develop
-rw --json > report.json    # the structured change report
-rw new                     # semantic: list the new features (needs an API key)
-rw notes --pr              # semantic: a PR description
+# Point at a repo and compare against a base branch
+cd ~/code/ledgerly
+rw                                  # vitals: current branch vs main
+rw many --base develop              # feature/fix/chore counts vs develop
+rw branch --base develop            # which branches contributed
+rw blame                            # who authored what
+rw --json > report.json             # the raw change_report.json
+
+# …or target any repo from anywhere, no `cd`
+rw many --repo ~/code/ledgerly --base develop
+rw      --repo ~/code/mogwar --base release/2.0 --head feature/onboarding
+
+# base/head take ANY ref — branch, tag, or SHA
+rw --base v1.2.0 --head v1.3.0      # what shipped between two tags
+rw --base main   --head a1b9f3c     # main vs a specific commit
+rw many --base origin/main          # vs the remote's main (local data; no fetch)
+```
+
+> `rw many` counts via conventional-commit prefixes (`feat:`, `fix:`, `chore:`…).
+> Commits that don't follow that convention bucket as chores. `rw` never fetches
+> for you, so `origin/*` refs reflect your last `git fetch`.
+
+The semantic commands add prose on top of the same change set:
+
+```sh
+rw new                     # list the new features (provider: anthropic or skill)
+rw notes --pr              # a PR description
 ```
 
 ### Semantic commands (`new`, `notes`)
