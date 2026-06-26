@@ -15,24 +15,31 @@ See [`docs/recap-wins-PRD.md`](docs/recap-wins-PRD.md) for the full product spec
 
 ## Status
 
-**Phase 0 — the deterministic core** (done). Offline, no LLM, no network: the
-trustworthy foundation, everything countable and verifiable.
+| Area | State |
+|---|---|
+| **Deterministic core** — `change_report.json`, `vitals`, `many`, `blame`, `branch` (offline) | ✅ done |
+| **Semantic commands** — `new`, `notes` (all five targets) with product voice + store caps | ✅ done |
+| **Provider switching** — `anthropic` (API) and `skill` (key-free) backends | ✅ done |
+| **Agent-skill packaging** — `SKILL.md` so any skill-aware agent can run the core | 🔜 next |
+| **Marketing** — `market` + the five product profiles | ⏳ planned |
+| **Gemini provider** — second API backend | ⏳ reserved |
+| **Localization, multi-repo** — per-locale store copy; `--all-repos` digest | ⏳ later |
 
-**Phase 1 — the semantic layer** (done). Model-backed commands that turn the
-change report into prose via the Anthropic API: `rw new` (list new features) and
-`rw notes` for every target (`--pr`, `--asc-reviewer`, `--what-new`,
-`--asc-update`, `--gp-update`), in the product's voice, within store char caps.
-Caps come from a TTL-cached `limits.json` manifest with a baked-in offline
-fallback; `--refresh-limits` forces a fetch and `--limit` only tightens. The core
-stays offline — only these commands reach the network. `market` is Phase 2.
+The deterministic core is fully offline and needs no key. The semantic commands
+turn the change report into prose either by calling an API (`anthropic`) or by
+emitting JSON for a host agent to complete (`skill` — no key, no network). See
+[What's coming next](#whats-coming-next) for the roadmap.
 
 ## Install
 
 Requires Swift 6 and a recent macOS.
 
 ```sh
+git clone https://github.com/yohannescodes/recap-wins.git
+cd recap-wins
 swift build -c release
-# the binary is at .build/release/rw
+# the binary is at .build/release/rw — symlink or alias it to `rw`:
+ln -s "$PWD/.build/release/rw" /usr/local/bin/rw
 ```
 
 ## Commands
@@ -40,8 +47,8 @@ swift build -c release
 All commands operate on a **change set**: the diff between a head ref (default:
 current branch) and a base ref (default: `main`).
 
-| Command | What it does |
-|---|---|
+| Command | What it does | Mode |
+|---|---|---|
 | `rw` *(default)* | The **vitals** dashboard — a one-screen health read of the change set | offline |
 | `rw new` | List the new *features* you introduced, filtering out chores/refactors | semantic |
 | `rw notes <target>` | Write a review/release note for a target (PR, App Review, TestFlight/Play, store update) | semantic |
@@ -60,12 +67,29 @@ rw new                     # semantic: list the new features (needs an API key)
 rw notes --pr              # semantic: a PR description
 ```
 
-### Semantic commands (Phase 1)
+### Semantic commands (`new`, `notes`)
 
-`rw new` and `rw notes` call the Anthropic API. Provide a key via the
-`ANTHROPIC_API_KEY` environment variable (preferred) or `api_key` in
-`testthese.toml` — the env var wins. Copy [`testthese.toml.example`](testthese.toml.example)
-to `testthese.toml` to configure the base ref, model, and product profiles.
+These turn the change report into prose. They run through a **provider**, chosen
+by `provider` in `testthese.toml` or the `--provider` flag (flag wins):
+
+| Provider | Needs a key? | What it does |
+|---|---|---|
+| `anthropic` *(default)* | yes | Calls the Anthropic API directly and prints the prose |
+| `skill` | **no** | Emits a JSON envelope for a host agent (Claude Code, Cowork) to complete — the host agent is the model |
+| `gemini` | — | Reserved; not yet implemented |
+
+**Skill mode — no API key, no network.** `rw` does the deterministic work and
+hands the agent a prompt + the grounded change report to write the prose. If you
+already pay for Claude through a plan, this routes the model work through your
+agent session at no extra cost:
+
+```sh
+rw new   --provider skill            # emits a JSON envelope for the host agent
+rw notes --asc-update --product ledgerly --provider skill
+```
+
+**API mode.** Provide a key via the `ANTHROPIC_API_KEY` environment variable
+(preferred) or `api_key` in `testthese.toml` — the env var wins.
 
 ```sh
 export ANTHROPIC_API_KEY=sk-ant-...
@@ -74,6 +98,9 @@ rw notes --pr                              # technical PR description, uncapped
 rw notes --asc-update --product ledgerly   # App Store "What's New", in voice, ≤4000
 rw notes --gp-update  --product ledgerly --limit 300   # tighter Play note
 ```
+
+Copy [`testthese.toml.example`](testthese.toml.example) to `testthese.toml` to
+configure the base ref, model, provider, and product profiles.
 
 `rw notes` takes exactly one target. The user-facing store targets
 (`--asc-update`, `--gp-update`, `--what-new`) pull voice and a soft length aim
@@ -99,14 +126,31 @@ Two cleanly separated layers (PRD §5):
 
 - **`RecapCore`** — the deterministic library. Shells out to system `git`,
   classifies commits, and builds the `change_report.json`. No model, no network.
-  This same core will back the standalone CLI *and* (Phase 3) a universal agent
-  skill.
-- **`SemanticKit`** — the semantic layer (Phase 1). Consumes a `ChangeReport`
-  and calls the Anthropic API (hand-rolled `URLSession`, zero deps) to write
-  prose. Depends on `RecapCore`, never the reverse — the core stays offline. The
-  model call sits behind a `ModelClient` protocol so tests inject a mock and CI
-  needs no key.
+  This same core backs the standalone CLI *and* (via skill mode) a host agent.
+- **`SemanticKit`** — the semantic layer. Consumes a `ChangeReport` and renders
+  prose through a pluggable **provider**: `anthropic` (hand-rolled `URLSession`,
+  zero deps), `skill` (emits a JSON envelope for a host agent — no key, no
+  network), or `gemini` (reserved). Depends on `RecapCore`, never the reverse —
+  the core stays offline. The API call sits behind a `ModelClient` protocol so
+  tests inject a mock and CI needs no key.
 - **`rw`** — the command-line front end over `RecapCore` + `SemanticKit`.
+
+## What's coming next
+
+Roadmap, in order (full detail in the [PRD](docs/recap-wins-PRD.md) §11):
+
+1. **Agent-skill packaging** — a `SKILL.md` + the core binary, droppable into any
+   skill-aware agent (Claude Code, Cowork). Skill *mode* already works; this is
+   the packaging that lets an agent invoke it as a first-class skill.
+2. **`rw market`** — a marketing content pack (App Store "What's New", short post,
+   tweet) in a product's voice, plus the five Novarch product profiles.
+3. **Gemini provider** — a second API backend behind the existing provider seam,
+   so you can switch models/providers from config.
+4. **Localization** — per-locale variants of the user-facing outputs, with
+   per-language store caps re-checked (translations routinely overflow a limit
+   the English version cleared).
+5. **Multi-repo** — an `--all-repos` digest ("what did I touch across every repo
+   this week"). Held back as the paid open-core layer.
 
 ## Development
 

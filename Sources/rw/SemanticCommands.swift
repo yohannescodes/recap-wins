@@ -4,14 +4,17 @@ import RecapCore
 import SemanticKit
 
 /// `rw new` — list the new user-facing features introduced (PRD §6).
-/// Semantic: calls the Anthropic API to filter chores/refactors out of the
-/// change set and report only genuine features.
+/// Semantic: in API mode the provider filters chores/refactors and writes the
+/// list; in skill mode `rw` emits a JSON envelope for the host agent to write it.
 struct New: ParsableCommand {
     static let configuration = CommandConfiguration(
         abstract: "List the new features you introduced, filtering out chores/refactors."
     )
 
     @OptionGroup var options: ChangeSetOptions
+
+    @Option(name: .long, help: "Backend: anthropic (API), skill (key-free, emits JSON), gemini (reserved).")
+    var provider: String?
 
     func run() throws {
         let config = try options.loadConfig()
@@ -22,7 +25,15 @@ struct New: ParsableCommand {
             return
         }
 
-        let engine = try options.makeSemanticEngine(config: config)
+        let provider = try resolveProvider(flag: provider, config: config)
+
+        // Skill mode: emit the envelope for the host agent; no API call.
+        if provider == .skill {
+            print(try SkillEnvelope.forNewFeatures(report).jsonString())
+            return
+        }
+
+        let engine = try options.makeSemanticEngine(config: config, provider: provider)
         try runAsync {
             let features = try await engine.newFeatures(report)
             print(features)
@@ -62,6 +73,9 @@ struct Notes: ParsableCommand {
 
     @Flag(name: .long, help: "Force a refresh of the cached store-limit manifest now.")
     var refreshLimits: Bool = false
+
+    @Option(name: .long, help: "Backend: anthropic (API), skill (key-free, emits JSON), gemini (reserved).")
+    var provider: String?
 
     /// Which targets the user selected.
     private var selectedTargets: [NoteTarget] {
@@ -112,23 +126,29 @@ struct Notes: ParsableCommand {
             }
         }
 
-        let engine = try options.makeSemanticEngine(config: config)
+        let selectedProvider = try resolveProvider(flag: provider, config: config)
         let limitOption = limit
         let refresh = refreshLimits
-        try runAsync {
-            // Resolve ceilings from the (possibly cached) manifest, then combine
-            // with the product's soft target and any --limit tightening.
-            let provider = LimitsProvider(config: config)
-            let ceilings = await provider.limits(forceRefresh: refresh)
-            let platform = profile?.platform ?? .iOS
-            let resolved = ResolvedLimit.resolve(
-                target: target,
-                platform: platform,
-                limits: ceilings,
-                softTarget: profile?.softTarget(for: target),
-                userLimit: limitOption
-            )
 
+        // Skill mode emits the envelope; API providers call the model. Both need
+        // the resolved limit, so compute it first (limits fetch may be async).
+        if selectedProvider == .skill {
+            try runAsync {
+                let resolved = try await resolveLimit(
+                    config: config, target: target, profile: profile,
+                    userLimit: limitOption, refresh: refresh)
+                let envelope = SkillEnvelope.forNote(
+                    report, target: target, product: profile, limit: resolved)
+                print(try envelope.jsonString())
+            }
+            return
+        }
+
+        let engine = try options.makeSemanticEngine(config: config, provider: selectedProvider)
+        try runAsync {
+            let resolved = try await resolveLimit(
+                config: config, target: target, profile: profile,
+                userLimit: limitOption, refresh: refresh)
             let result = try await engine.note(report, target: target, product: profile, limit: resolved)
             print(result.text)
             if let warning = result.overflowWarning {
@@ -136,4 +156,24 @@ struct Notes: ParsableCommand {
             }
         }
     }
+}
+
+/// Resolve the effective limit for a notes render: fetch ceilings (cached),
+/// combine with the product's soft target and any `--limit` tightening.
+private func resolveLimit(
+    config: Config,
+    target: NoteTarget,
+    profile: ProductProfile?,
+    userLimit: Int?,
+    refresh: Bool
+) async throws -> ResolvedLimit {
+    let limitsProvider = LimitsProvider(config: config)
+    let ceilings = await limitsProvider.limits(forceRefresh: refresh)
+    return ResolvedLimit.resolve(
+        target: target,
+        platform: profile?.platform ?? .iOS,
+        limits: ceilings,
+        softTarget: profile?.softTarget(for: target),
+        userLimit: userLimit
+    )
 }

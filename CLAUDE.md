@@ -22,11 +22,14 @@ before making product decisions.
   or network dependencies. This is the engine the CLI and (Phase 3) the agent
   skill both consume. Keep it that way: nothing in `RecapCore` should import
   ArgumentParser or make network calls.
-- `Sources/SemanticKit/` — the **semantic layer** (Phase 1). Consumes a
-  `ChangeReport` and calls the Anthropic API to write prose. Depends on
-  `RecapCore`; **never** the reverse. The model call is behind the `ModelClient`
-  protocol — production uses `AnthropicClient` (hand-rolled `URLSession`, zero
-  deps), tests inject a mock so CI stays offline and keyless. API key from
+- `Sources/SemanticKit/` — the **semantic layer**. Consumes a `ChangeReport` and
+  renders prose through a pluggable **provider** (`Provider`): `anthropic` (API),
+  `skill` (emits a `SkillEnvelope` JSON for a host agent — no key, no network),
+  `gemini` (reserved — add its client in `ModelConfig.makeClient(for:)`, the one
+  plug-in point). Selected by the `provider` config key or `--provider` flag.
+  Depends on `RecapCore`; **never** the reverse. The API call is behind the
+  `ModelClient` protocol — `AnthropicClient` is hand-rolled `URLSession` (zero
+  deps); tests inject a mock so CI stays offline and keyless. API key from
   `ANTHROPIC_API_KEY` (env wins) or `api_key` in config.
 - `Sources/rw/` — the `rw` command-line front end over `RecapCore` +
   `SemanticKit`.
@@ -46,9 +49,13 @@ here; the semantic layer consumes it.
 - **Phase 0 (done):** deterministic core — `rw` vitals (default), `many`,
   `blame`, `branch`. Offline, no LLM.
 - **Phase 1 (done):** semantic layer — `rw new` and `rw notes` (all targets:
-  `--pr`, `--asc-reviewer`, `--what-new`, `--asc-update`, `--gp-update`) via the
-  Anthropic API, with product-voice rendering and a TTL-cached `limits.json` cap
-  manifest (offline fallback baked in; `--refresh-limits`, `--limit`).
+  `--pr`, `--asc-reviewer`, `--what-new`, `--asc-update`, `--gp-update`), with
+  product-voice rendering and a TTL-cached `limits.json` cap manifest (offline
+  fallback baked in; `--refresh-limits`, `--limit`).
+- **Phase 3 skill mode (done, pulled forward):** pluggable providers —
+  `anthropic` (API), `skill` (key-free, emits JSON for a host agent), `gemini`
+  (reserved). Selected by `provider` config / `--provider`. Skill mode is the
+  no-key path for users who pay for Claude via a plan.
 - Phase 2: `market` + product profiles.
 - Phase 3: package the core as a universal agent skill.
 - Phase 4: localization. Phase 5: multi-repo (paid open-core line).
