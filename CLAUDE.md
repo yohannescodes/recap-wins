@@ -63,6 +63,9 @@ here; the semantic layer consumes it.
 
 ## Conventions
 
+- `rw help [topic]` is a hand-written guide (`Sources/rw/HelpCommand.swift`),
+  separate from argument-parser's auto `--help`. Keep it and `docs/GUIDE.md` in
+  sync when commands/flags change.
 - The vitals path **must stay deterministic** — no model, no network (PRD §7).
 - Risk flags are **advisory, never gates** (PRD §7).
 - A ticket reference is *detected if present*, never *required* (PRD §12).
