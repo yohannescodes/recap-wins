@@ -1,6 +1,6 @@
 ---
 name: recap-wins
-description: "Summarize what a git branch introduced — feature lists, PR descriptions, and store release notes — from the diff against a base ref. Use when the user asks 'what did I ship/change/introduce on this branch', wants a PR description written, needs App Store / Google Play / TestFlight release notes, or wants a recap of a change set. Works offline; the agent writes the prose, no API key needed."
+description: "Summarize what a git branch introduced — feature lists, PR descriptions, store release notes, and marketing copy — from the diff against a base ref. Use when the user asks 'what did I ship/change/introduce on this branch', wants a PR description written, needs App Store / Google Play / TestFlight release notes, wants marketing copy for an update, or wants a recap of a change set. Works offline; the agent writes the prose, no API key needed."
 version: 0.1.0
 ---
 
@@ -45,7 +45,11 @@ against (default `main`), `--head` the ref to compare (default current branch).
 | `notes --gp-update --product <id>` | Google Play release notes (≤ cap, product voice) |
 | `notes --what-new --product <id>` | TestFlight / Play testing notes |
 | `notes --asc-reviewer` | App Store Connect App Review notes (private) |
+| `market --product <id>` | A marketing content pack — one envelope per piece (What's New, promo text, subtitle, post, tweet…) |
 | `vitals`, `many`, `blame`, `branch` | Raw `change_report.json` — facts, not prose |
+
+> `market` returns a **JSON array** of envelopes (one per piece). Write each
+> piece from its own `system`/`user`/`ceilingChars`, then present the pack.
 
 ## Writing prose from the JSON (semantic commands)
 

@@ -163,4 +163,59 @@ public enum PromptBuilder {
         let chars = limit.ceiling > 0 ? limit.ceiling : 2000
         return min(2000, max(400, chars / 2))
     }
+
+    /// System + user prompt for one `rw market` pack piece (PRD §6). Renders the
+    /// new features as marketing copy in the product's voice, for one channel.
+    public static func marketPiece(
+        _ report: ChangeReport,
+        piece: MarketPiece,
+        product: ProductProfile,
+        ceiling: Int
+    ) -> ModelRequest {
+        var system = """
+        You write MARKETING COPY for an app, announcing what's new. Write in the \
+        product's voice: \(product.voice). The product is named \(product.name).
+        """
+        if !product.links.isEmpty {
+            system += "\nRelevant links (use only if natural): \(product.links.joined(separator: ", "))."
+        }
+        system += "\n\n" + pieceInstruction(piece)
+        if ceiling > 0 {
+            system += " Hard limit: \(ceiling) characters — do not exceed it."
+        }
+        system += "\n\nBase every claim on the change set below; do not invent " +
+            "features. Benefit-led, no internal/technical jargon, no commit hashes. " +
+            "Output only the copy itself — no label, no preamble, no quotes."
+
+        let user = "Here is the change set:\n\n\(contextBlock(report))"
+        return ModelRequest(
+            system: system,
+            messages: [ChatMessage(role: .user, text: user)],
+            maxTokens: ceiling > 0 ? min(600, max(120, ceiling / 2)) : 700,
+            temperature: 0.7
+        )
+    }
+
+    /// Per-piece channel/format instruction.
+    private static func pieceInstruction(_ piece: MarketPiece) -> String {
+        switch piece {
+        case .whatsNew:
+            return "Write an App Store \"What's New\" announcement: a few punchy " +
+                "lines leading with the most exciting new feature."
+        case .promotionalText:
+            return "Write App Store promotional text: one or two vivid sentences " +
+                "highlighting what's new, meant to sit above the description."
+        case .subtitle:
+            return "Write an App Store subtitle: a single, tight tagline-length phrase."
+        case .shortDescription:
+            return "Write a Google Play short description: one compelling sentence " +
+                "about what the app now does."
+        case .post:
+            return "Write a short social post announcing the update — friendly, " +
+                "skimmable, one or two short paragraphs, light on hashtags."
+        case .tweet:
+            return "Write a single tweet announcing the update — punchy, one sentence " +
+                "or two, at most one hashtag."
+        }
+    }
 }

@@ -53,6 +53,8 @@ public struct Config: Sendable, Equatable {
     public var limitsManifestTTL: String?
     /// Baked-in offline fallback ceilings from `[review_notes.limits]`.
     public var reviewNoteLimits: ReviewNoteLimits
+    /// Marketing-field ceilings from `[market.limits]` (PRD §8).
+    public var marketLimits: MarketLimits
     /// Which backend renders prose. Default `anthropic`; `--provider` overrides.
     public var provider: Provider
 
@@ -66,6 +68,7 @@ public struct Config: Sendable, Equatable {
         limitsManifestURL: String? = nil,
         limitsManifestTTL: String? = nil,
         reviewNoteLimits: ReviewNoteLimits = .fallback,
+        marketLimits: MarketLimits = .fallback,
         provider: Provider = .anthropic
     ) {
         self.base = base
@@ -75,6 +78,7 @@ public struct Config: Sendable, Equatable {
         self.limitsManifestURL = limitsManifestURL
         self.limitsManifestTTL = limitsManifestTTL
         self.reviewNoteLimits = reviewNoteLimits
+        self.marketLimits = marketLimits
         self.provider = provider
     }
 
@@ -105,6 +109,7 @@ public struct Config: Sendable, Equatable {
         case product
         case limitsManifest
         case reviewNoteLimits
+        case marketLimits
         case other
     }
 
@@ -141,6 +146,7 @@ public struct Config: Sendable, Equatable {
                 case "[[product]]": table = .product
                 case "[limits_manifest]": table = .limitsManifest
                 case "[review_notes.limits]": table = .reviewNoteLimits
+                case "[market.limits]": table = .marketLimits
                 default: table = .other
                 }
                 continue
@@ -170,6 +176,14 @@ public struct Config: Sendable, Equatable {
                 case "what_new_android": config.reviewNoteLimits.whatNewAndroid = n
                 case "asc_update": config.reviewNoteLimits.ascUpdate = n
                 case "gp_update": config.reviewNoteLimits.gpUpdate = n
+                default: break
+                }
+            case .marketLimits:
+                guard let n = value.int else { break }
+                switch key {
+                case "asc_promotional_text": config.marketLimits.ascPromotionalText = n
+                case "asc_subtitle": config.marketLimits.ascSubtitle = n
+                case "gp_short_description": config.marketLimits.gpShortDescription = n
                 default: break
                 }
             case .top:

@@ -8,7 +8,7 @@
 # Usage:
 #   recap-wins.sh <command> [rw-args...]
 #
-#   command : new | notes | vitals | many | blame | branch
+#   command : new | notes | market | vitals | many | blame | branch
 #
 # Examples:
 #   recap-wins.sh new --repo ~/code/ledgerly
@@ -25,7 +25,7 @@
 set -euo pipefail
 
 if [[ $# -lt 1 ]]; then
-  echo "usage: recap-wins.sh <new|notes|vitals|many|blame|branch> [rw-args...]" >&2
+  echo "usage: recap-wins.sh <new|notes|market|vitals|many|blame|branch> [rw-args...]" >&2
   exit 2
 fi
 
@@ -80,7 +80,7 @@ fi
 # commands emit the skill envelope (--provider skill). Both are JSON the agent
 # can read without an API key.
 case "$command" in
-  new|notes)
+  new|notes|market)
     exec "$bin" "$command" --provider skill "$@"
     ;;
   vitals)
@@ -90,7 +90,7 @@ case "$command" in
     exec "$bin" "$command" --json "$@"
     ;;
   *)
-    echo "unknown command: $command (use new|notes|vitals|many|blame|branch)" >&2
+    echo "unknown command: $command (use new|notes|market|vitals|many|blame|branch)" >&2
     exit 2
     ;;
 esac

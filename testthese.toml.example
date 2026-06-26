@@ -36,8 +36,15 @@ what_new_android = 500    # Play testing release notes, per language
 asc_update       = 4000   # App Store "What's New"
 gp_update        = 500    # Google Play release notes, per language
 
+# Marketing-field ceilings for `rw market` store-metadata pieces (PRD §8).
+# Verify in-console before a release; stores adjust these.
+[market.limits]
+asc_promotional_text = 170   # App Store promotional text
+asc_subtitle         = 30    # App Store subtitle
+gp_short_description = 80    # Google Play short description
+
 # Product profiles supply voice, platform, and soft length targets to the
-# user-facing `notes` targets (and Phase 2 `market`). Pass --product <id>.
+# user-facing `notes` targets and `rw market`. Pass --product <id>.
 [[product]]
 id = "ledgerly"
 name = "Ledgerly"

@@ -57,9 +57,12 @@ here; the semantic layer consumes it.
   config / `--provider`; **and** the agent-skill package in `skill/` (`SKILL.md`
   + `scripts/recap-wins.sh`). The runner calls `rw` in skill mode and the host
   agent writes the prose. Install: copy `skill/` → `~/.claude/skills/recap-wins/`.
-- Phase 2: `market` + product profiles (next).
-- Phase 3: package the core as a universal agent skill.
-- Phase 4: localization. Phase 5: multi-repo (paid open-core line).
+- **Phase 2 (done):** `rw market` — a marketing content pack (What's New, promo
+  text, subtitle, GP short description, post, tweet) in a product's voice, each
+  within its `[market.limits]` cap. Distinct from store-update `notes`; works in
+  every provider mode incl. skill (emits one envelope per piece).
+- Phase 4: localization. Phase 5: multi-repo (paid open-core line). Gemini
+  provider (fill the reserved slot) is the next net-new.
 
 ## Conventions
 
