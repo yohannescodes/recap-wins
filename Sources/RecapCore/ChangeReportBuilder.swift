@@ -138,7 +138,7 @@ public struct ChangeReportBuilder {
             guard let statusCol = cols.first, let letter = statusCol.first else { continue }
             // Renames/copies have two paths (old, new); key on the new path.
             let path = cols.count >= 3 ? String(cols[2]) : (cols.count >= 2 ? String(cols[1]) : "")
-            if !path.isEmpty { statusByPath[path] = String(letter) }
+            if !path.isEmpty { statusByPath[Self.normalizeRenamePath(path)] = String(letter) }
         }
 
         var files: [FileChange] = []
@@ -148,7 +148,10 @@ public struct ChangeReportBuilder {
             // Binary files show "-" for counts; treat as 0.
             let insertions = Int(cols[0]) ?? 0
             let deletions = Int(cols[1]) ?? 0
-            let path = String(cols[2])
+            // numstat renders renames inline as "old => new" (or with a brace
+            // segment "pre/{old => new}/post"); resolve to the new path so the
+            // file reads as one renamed entry, not a literal arrow string.
+            let path = Self.normalizeRenamePath(String(cols[2]))
             files.append(FileChange(
                 path: path,
                 insertions: insertions,
@@ -157,6 +160,27 @@ public struct ChangeReportBuilder {
             ))
         }
         return files
+    }
+
+    /// Resolve git's inline rename notation to the destination path.
+    /// Handles both `old => new` and the braced `pre/{old => new}/post` forms;
+    /// returns the input unchanged when there's no rename arrow.
+    static func normalizeRenamePath(_ raw: String) -> String {
+        guard raw.contains("=>") else { return raw }
+        // Braced form: pre/{old => new}/post → pre/new/post.
+        if let open = raw.firstIndex(of: "{"), let close = raw.firstIndex(of: "}"), open < close {
+            let inside = raw[raw.index(after: open)..<close]
+            let newPart = inside.components(separatedBy: "=>").last?
+                .trimmingCharacters(in: .whitespaces) ?? ""
+            let prefix = raw[raw.startIndex..<open]
+            let suffix = raw[raw.index(after: close)...]
+            // Collapse any doubled slashes that arise when old/new is empty.
+            return (prefix + newPart + suffix)
+                .replacingOccurrences(of: "//", with: "/")
+        }
+        // Simple form: old => new.
+        return raw.components(separatedBy: "=>").last?
+            .trimmingCharacters(in: .whitespaces) ?? raw
     }
 
     // MARK: - Branches
