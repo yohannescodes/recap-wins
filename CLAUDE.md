@@ -52,11 +52,12 @@ here; the semantic layer consumes it.
   `--pr`, `--asc-reviewer`, `--what-new`, `--asc-update`, `--gp-update`), with
   product-voice rendering and a TTL-cached `limits.json` cap manifest (offline
   fallback baked in; `--refresh-limits`, `--limit`).
-- **Phase 3 skill mode (done, pulled forward):** pluggable providers —
-  `anthropic` (API), `skill` (key-free, emits JSON for a host agent), `gemini`
-  (reserved). Selected by `provider` config / `--provider`. Skill mode is the
-  no-key path for users who pay for Claude via a plan.
-- Phase 2: `market` + product profiles.
+- **Phase 3 (done):** pluggable providers — `anthropic` (API), `skill` (key-free,
+  emits JSON for a host agent), `gemini` (reserved), selected by `provider`
+  config / `--provider`; **and** the agent-skill package in `skill/` (`SKILL.md`
+  + `scripts/recap-wins.sh`). The runner calls `rw` in skill mode and the host
+  agent writes the prose. Install: copy `skill/` → `~/.claude/skills/recap-wins/`.
+- Phase 2: `market` + product profiles (next).
 - Phase 3: package the core as a universal agent skill.
 - Phase 4: localization. Phase 5: multi-repo (paid open-core line).
 

@@ -20,8 +20,8 @@ See [`docs/recap-wins-PRD.md`](docs/recap-wins-PRD.md) for the full product spec
 | **Deterministic core** — `change_report.json`, `vitals`, `many`, `blame`, `branch` (offline) | ✅ done |
 | **Semantic commands** — `new`, `notes` (all five targets) with product voice + store caps | ✅ done |
 | **Provider switching** — `anthropic` (API) and `skill` (key-free) backends | ✅ done |
-| **Agent-skill packaging** — `SKILL.md` so any skill-aware agent can run the core | 🔜 next |
-| **Marketing** — `market` + the five product profiles | ⏳ planned |
+| **Agent-skill packaging** — `SKILL.md` + runner, droppable into any skill-aware agent | ✅ done |
+| **Marketing** — `market` + the five product profiles | 🔜 next |
 | **Gemini provider** — second API backend | ⏳ reserved |
 | **Localization, multi-repo** — per-locale store copy; `--all-repos` digest | ⏳ later |
 
@@ -111,6 +111,27 @@ the tool **warns** if output overflows, it never silently truncates, and
 The deterministic commands (and `--json` on any command) never need a key and
 never touch the network.
 
+## Agent skill (no API key)
+
+`rw` ships as a drop-in **agent skill** ([`skill/`](skill/)): a `SKILL.md` plus a
+runner script. Inside a skill-aware agent (Claude Code, Cowork), the agent runs
+`rw` for the structured JSON and then writes the prose itself — so the model work
+goes through your agent session, with **no API key and no per-call cost**.
+
+```sh
+# Install into Claude Code's skills directory
+mkdir -p ~/.claude/skills/recap-wins
+cp -R skill/ ~/.claude/skills/recap-wins/
+```
+
+Then just ask your agent things like *"what did I ship on this branch?"* or
+*"write the App Store release notes for this update"* — it invokes the skill,
+reads the change report, and writes the answer. The runner finds `rw` on your
+PATH (or builds it); set `RW_BIN` to point at a specific binary.
+
+This is the same engine as the CLI — the deterministic core produces the report,
+and in skill mode the host agent is the model. See [`skill/SKILL.md`](skill/SKILL.md).
+
 ## What the vitals show (PRD §7)
 
 - Features / fixes / chores introduced
@@ -139,17 +160,14 @@ Two cleanly separated layers (PRD §5):
 
 Roadmap, in order (full detail in the [PRD](docs/recap-wins-PRD.md) §11):
 
-1. **Agent-skill packaging** — a `SKILL.md` + the core binary, droppable into any
-   skill-aware agent (Claude Code, Cowork). Skill *mode* already works; this is
-   the packaging that lets an agent invoke it as a first-class skill.
-2. **`rw market`** — a marketing content pack (App Store "What's New", short post,
+1. **`rw market`** — a marketing content pack (App Store "What's New", short post,
    tweet) in a product's voice, plus the five Novarch product profiles.
-3. **Gemini provider** — a second API backend behind the existing provider seam,
+2. **Gemini provider** — a second API backend behind the existing provider seam,
    so you can switch models/providers from config.
-4. **Localization** — per-locale variants of the user-facing outputs, with
+3. **Localization** — per-locale variants of the user-facing outputs, with
    per-language store caps re-checked (translations routinely overflow a limit
    the English version cleared).
-5. **Multi-repo** — an `--all-repos` digest ("what did I touch across every repo
+4. **Multi-repo** — an `--all-repos` digest ("what did I touch across every repo
    this week"). Held back as the paid open-core layer.
 
 ## Development
