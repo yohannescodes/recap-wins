@@ -67,6 +67,11 @@ here; the semantic layer consumes it.
   separate from argument-parser's auto `--help`. Keep it and `docs/GUIDE.md` in
   sync when commands/flags change.
 - The vitals path **must stay deterministic** — no model, no network (PRD §7).
+- Classification: conventional-commit prefixes are authoritative. For `.other`
+  commits, `CommitClassifier` *infers* a bucket (subject verbs + new-file
+  evidence) into `Commit.inferredBucket` — the parsed `type` is never overwritten,
+  and inferred counts are surfaced (`Vitals.inferredCount`) so the UI can flag
+  declared-vs-guessed. Keep it transparent and predictable, no model.
 - Risk flags are **advisory, never gates** (PRD §7).
 - A ticket reference is *detected if present*, never *required* (PRD §12).
 - Notes caps are **hard ceilings**: warn on overflow, never silently truncate;

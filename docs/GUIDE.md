@@ -86,12 +86,17 @@ rw many --base origin/main       # vs the remote's main (uses local data)
 never fetch, and never call a model. `origin/*` refs reflect your last
 `git fetch` — `rw` won't fetch for you.
 
-**Classification.** Counts (features / fixes / chores) come from
+**Classification.** Counts come first from
 [conventional-commit](https://www.conventionalcommits.org) prefixes (`feat:`,
-`fix:`, `chore:`, …). A commit without a recognized prefix buckets as a chore.
-On a repo that doesn't follow the convention, the deterministic counts will
-under-report features — use `rw new` (semantic), which reads the diff and commit
-content to recover the real features.
+`fix:`, `chore:`, …) — the authoritative signal, never overridden. For commits
+with **no** recognized prefix, `rw` *infers* a bucket from the subject verbs
+(add/ship/implement → feature; fix/resolve → fix; bump/refactor/rename → chore)
+and the diff (a change set that adds new source files leans feature). Inferred
+counts are flagged in the output — e.g. `(2 inferred from message/diff — not
+conventional commits)` — so you can always tell a declared count from a guessed
+one. The parsed type is never overwritten; `--json` shows both `type` and
+`inferredBucket`. For the richest read on non-conventional history, `rw new`
+(semantic) reads the full diff and recovers features even more precisely.
 
 ---
 

@@ -42,6 +42,12 @@ enum Render {
         ].joined(separator: Style.dim("  ·  "))
         lines.append("  " + counts)
 
+        // When some counts came from inference (not declared conventional-commit
+        // prefixes), say so — the number isn't purely from declared types.
+        if v.inferredCount > 0 {
+            lines.append("  " + Style.dim("(\(v.inferredCount) inferred from message/diff — not conventional commits)"))
+        }
+
         // Diff stats.
         let diff = "\(v.filesChanged) files  "
             + Style.green("+\(v.insertions)") + "  "
@@ -94,8 +100,11 @@ enum Render {
         lines.append("  " + Style.green("\(v.features)") + " features   "
             + Style.cyan("\(v.fixes)") + " fixes   "
             + Style.dim("\(v.chores) chores"))
+        if v.inferredCount > 0 {
+            lines.append("  " + Style.dim("(\(v.inferredCount) inferred from message/diff — not conventional commits)"))
+        }
         lines.append("")
-        lines.append("  " + Style.dim("By type"))
+        lines.append("  " + Style.dim("By declared type"))
         for type in CommitType.allCases {
             let n = byType[type] ?? 0
             if n == 0 { continue }

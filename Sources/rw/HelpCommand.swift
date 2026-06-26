@@ -101,10 +101,12 @@ enum HelpText {
           deterministic path. origin/* refs reflect your last `git fetch`.
 
         \(h("CLASSIFICATION"))
-          Counts (features/fixes/chores) come from conventional-commit prefixes
-          (feat:, fix:, chore:…). Commits without a recognized prefix bucket as
-          chores. On repos that don't use the convention, prefer \(cmd("rw new")) — the
-          semantic path reads the diff and recovers real features.
+          Counts come first from conventional-commit prefixes (feat:, fix:,
+          chore:…) — the authoritative signal. For commits with no recognized
+          prefix, rw INFERS a bucket from the subject verbs and the diff (new
+          source files lean feature). Inferred counts are flagged in the output
+          ("N inferred from message/diff") so you can tell declared from guessed.
+          The parsed type is never overwritten; --json shows both.
         """
     }
 
