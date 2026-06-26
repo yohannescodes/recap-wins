@@ -1,0 +1,89 @@
+import ArgumentParser
+import Foundation
+import RecapCore
+
+/// Root command. With no subcommand, `rw` prints the vitals dashboard (PRD §6).
+@main
+struct RW: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "rw",
+        abstract: "recap-wins — see what your branch introduced, offline and instant.",
+        version: "0.1.0",
+        subcommands: [Many.self, Blame.self, Branch.self],
+        defaultSubcommand: Vitals.self
+    )
+}
+
+/// The default view: the one-screen vitals dashboard (PRD §7).
+struct Vitals: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "vitals",
+        abstract: "One-screen health read of the change set (default)."
+    )
+
+    @OptionGroup var options: ChangeSetOptions
+
+    func run() throws {
+        let report = try options.buildReport()
+        if options.json {
+            try emitJSON(report)
+        } else {
+            print(Render.vitals(report))
+        }
+    }
+}
+
+/// `rw many` — deterministic counts of features / fixes / chores (PRD §6).
+/// Semantic dedup is deferred to Phase 1; this is conventional-commit counts.
+struct Many: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        abstract: "Count distinct features / fixes / chores introduced."
+    )
+
+    @OptionGroup var options: ChangeSetOptions
+
+    func run() throws {
+        let report = try options.buildReport()
+        if options.json {
+            try emitJSON(report)
+        } else {
+            print(Render.many(report))
+        }
+    }
+}
+
+/// `rw blame` — attribution across the change set (PRD §6).
+struct Blame: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        abstract: "Attribute who changed what across the change set."
+    )
+
+    @OptionGroup var options: ChangeSetOptions
+
+    func run() throws {
+        let report = try options.buildReport()
+        if options.json {
+            try emitJSON(report)
+        } else {
+            print(Render.blame(report))
+        }
+    }
+}
+
+/// `rw branch` — branches that contributed commits (PRD §6).
+struct Branch: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        abstract: "Show which branches contributed commits to this change set."
+    )
+
+    @OptionGroup var options: ChangeSetOptions
+
+    func run() throws {
+        let report = try options.buildReport()
+        if options.json {
+            try emitJSON(report)
+        } else {
+            print(Render.branch(report))
+        }
+    }
+}
