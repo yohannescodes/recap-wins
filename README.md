@@ -197,8 +197,7 @@ Roadmap, in order:
 2. **Multi-repo** — an `--all-repos` digest ("what did I touch across every repo
    this week"). Held back as the paid open-core layer.
 
-Releases are cut via a Homebrew formula built from a source tag — see
-[docs/RELEASING.md](docs/RELEASING.md).
+Releases are cut via a Homebrew formula built from a source tag.
 
 ## Development
 
