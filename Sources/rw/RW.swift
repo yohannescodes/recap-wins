@@ -2,23 +2,17 @@ import ArgumentParser
 import Foundation
 import RecapCore
 
-/// Root command. With no subcommand, `rw` prints the vitals dashboard (PRD §6).
+/// Root command. With no subcommand, `rw` itself prints the vitals dashboard
+/// (PRD §6/§7). Vitals lives on the root rather than as a `defaultSubcommand`
+/// because swift-argument-parser doesn't reliably route top-level options to a
+/// default subcommand — the root command owns the default behavior directly.
 @main
 struct RW: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "rw",
         abstract: "recap-wins — see what your branch introduced, offline and instant.",
         version: "0.1.0",
-        subcommands: [Many.self, Blame.self, Branch.self],
-        defaultSubcommand: Vitals.self
-    )
-}
-
-/// The default view: the one-screen vitals dashboard (PRD §7).
-struct Vitals: ParsableCommand {
-    static let configuration = CommandConfiguration(
-        commandName: "vitals",
-        abstract: "One-screen health read of the change set (default)."
+        subcommands: [Many.self, Blame.self, Branch.self]
     )
 
     @OptionGroup var options: ChangeSetOptions
