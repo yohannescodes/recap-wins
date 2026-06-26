@@ -11,8 +11,6 @@ counterpart to a public changelog: it runs **before or at** merge and writes for
 It's language-agnostic — it operates on `git`, not on any one language — so it
 works identically across every repo.
 
-See [`docs/recap-wins-PRD.md`](docs/recap-wins-PRD.md) for the full product spec.
-
 ## Status
 
 | Area | State |
@@ -191,7 +189,7 @@ Two cleanly separated layers (PRD §5):
 
 ## What's coming next
 
-Roadmap, in order (full detail in the [PRD](docs/recap-wins-PRD.md) §11):
+Roadmap, in order:
 
 1. **Localization** — per-locale variants of the user-facing outputs, with
    per-language store caps re-checked (translations routinely overflow a limit
