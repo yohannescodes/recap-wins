@@ -36,6 +36,16 @@ then builds and installs the `rw` binary.
 
 4. Users get it with `brew upgrade recap-wins`.
 
+## The repo must be public
+
+A Homebrew tap downloads the source tarball from
+`https://github.com/<owner>/<repo>/archive/refs/tags/<tag>.tar.gz`. GitHub serves
+that URL **only for public repos** — on a private repo it returns 404 to the
+anonymous request `brew` makes, so the tap can't resolve. The `sha256` must also
+be computed from that public URL (the authenticated API tarball can differ
+byte-for-byte). So: make the repo public first, *then* run `scripts/release.sh`
+to get the correct `sha256` and fill the formula.
+
 ## Notes
 
 - The formula builds from source (`swift build -c release`), so there are no
