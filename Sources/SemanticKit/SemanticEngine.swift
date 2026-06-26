@@ -22,4 +22,39 @@ public struct SemanticEngine: Sendable {
         let request = PromptBuilder.pullRequestNote(report)
         return try await client.complete(request).trimmingCharacters(in: .whitespacesAndNewlines)
     }
+
+    /// The result of rendering a notes target: the prose plus any cap warning.
+    public struct NoteResult: Sendable, Equatable {
+        public var text: String
+        /// Non-nil when output overflows the hard ceiling. The PRD says warn,
+        /// never silently truncate — the caller surfaces this; text is untouched.
+        public var overflowWarning: String?
+
+        public init(text: String, overflowWarning: String?) {
+            self.text = text
+            self.overflowWarning = overflowWarning
+        }
+    }
+
+    /// `rw notes <target>` — render the change set for a target within its cap.
+    ///
+    /// - Parameters:
+    ///   - limit: the resolved hard ceiling + soft target for this render.
+    public func note(
+        _ report: ChangeReport,
+        target: NoteTarget,
+        product: ProductProfile?,
+        limit: ResolvedLimit
+    ) async throws -> NoteResult {
+        let request = PromptBuilder.note(report, target: target, product: product, limit: limit)
+        let text = try await client.complete(request).trimmingCharacters(in: .whitespacesAndNewlines)
+
+        var warning: String?
+        if limit.overflows(text.count) {
+            warning = "Output is \(text.count) characters, over the "
+                + "\(limit.ceiling)-character limit for \(target.displayName). "
+                + "Tighten before publishing — not truncated automatically."
+        }
+        return NoteResult(text: text, overflowWarning: warning)
+    }
 }

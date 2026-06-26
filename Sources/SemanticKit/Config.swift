@@ -1,31 +1,58 @@
 import Foundation
 
-/// A product profile (PRD §8): voice and links the semantic layer renders in.
+/// A product profile (PRD §8): voice, links, target platform, and soft editorial
+/// length targets the semantic layer renders in.
 public struct ProductProfile: Sendable, Equatable {
     public var id: String
     public var name: String
     public var voice: String
     public var links: [String]
+    /// Mobile platform this product ships on — drives the `--what-new` cap.
+    public var platform: Platform
+    /// Soft editorial char targets the model AIMS for, per target (PRD §8). Keyed
+    /// by the target's config name ("asc_update", "gp_update", "what_new").
+    public var targets: [String: Int]
 
-    public init(id: String, name: String, voice: String, links: [String]) {
+    public init(
+        id: String,
+        name: String,
+        voice: String,
+        links: [String],
+        platform: Platform = .iOS,
+        targets: [String: Int] = [:]
+    ) {
         self.id = id
         self.name = name
         self.voice = voice
         self.links = links
+        self.platform = platform
+        self.targets = targets
+    }
+
+    /// The soft target (chars) for a note target, or nil if none configured.
+    public func softTarget(for target: NoteTarget) -> Int? {
+        switch target {
+        case .ascUpdate: return targets["asc_update"]
+        case .gpUpdate: return targets["gp_update"]
+        case .whatNew: return targets["what_new"]
+        case .pr, .ascReviewer: return nil
+        }
     }
 }
 
 /// Repo configuration (PRD §8). Per-repo, human-readable, no global state.
-///
-/// This pass reads the keys the core semantic slice needs: `base`, `model`, an
-/// optional `api_key`, and `[[product]]` profiles. Limit manifests and target
-/// caps (§6.1) land with the store-targets follow-up.
 public struct Config: Sendable, Equatable {
     public var base: String
     public var model: String
     /// Optional key from config; env var takes precedence (see ModelConfig).
     public var apiKey: String?
     public var products: [ProductProfile]
+    /// Optional limits-manifest URL (PRD §6.1): published caps fetched + cached.
+    public var limitsManifestURL: String?
+    /// Manifest cache TTL, e.g. "30d". Defaults to 30 days when unset.
+    public var limitsManifestTTL: String?
+    /// Baked-in offline fallback ceilings from `[review_notes.limits]`.
+    public var reviewNoteLimits: ReviewNoteLimits
 
     public static let defaultModel = "claude-sonnet-4-6"
 
@@ -33,12 +60,18 @@ public struct Config: Sendable, Equatable {
         base: String = "main",
         model: String = Config.defaultModel,
         apiKey: String? = nil,
-        products: [ProductProfile] = []
+        products: [ProductProfile] = [],
+        limitsManifestURL: String? = nil,
+        limitsManifestTTL: String? = nil,
+        reviewNoteLimits: ReviewNoteLimits = .fallback
     ) {
         self.base = base
         self.model = model
         self.apiKey = apiKey
         self.products = products
+        self.limitsManifestURL = limitsManifestURL
+        self.limitsManifestTTL = limitsManifestTTL
+        self.reviewNoteLimits = reviewNoteLimits
     }
 
     /// Look up a product profile by id.
@@ -62,22 +95,33 @@ public struct Config: Sendable, Equatable {
         return Config()
     }
 
+    /// Which table the parser is currently inside.
+    private enum Table {
+        case top
+        case product
+        case limitsManifest
+        case reviewNoteLimits
+        case other
+    }
+
     /// Parse the supported subset of the TOML config. A focused reader rather
     /// than a TOML dependency, matching the file shape in PRD §8.
     public static func parse(_ toml: String) throws -> Config {
         var config = Config()
         var products: [ProductProfile] = []
-        var current: [String: TOMLValue]? = nil
-        var inProductTable = false
+        var table: Table = .top
+        var current: [String: TOMLValue] = [:]
 
         func flushProduct() {
-            guard inProductTable, let table = current else { return }
-            guard let id = table["id"]?.string, let name = table["name"]?.string else { return }
+            guard let id = current["id"]?.string, let name = current["name"]?.string else { return }
+            let platform: Platform = current["platform"]?.string.flatMap(Platform.init(rawValue:)) ?? .iOS
             products.append(ProductProfile(
                 id: id,
                 name: name,
-                voice: table["voice"]?.string ?? "",
-                links: table["links"]?.stringArray ?? []
+                voice: current["voice"]?.string ?? "",
+                links: current["links"]?.stringArray ?? [],
+                platform: platform,
+                targets: current["targets"]?.intTable ?? [:]
             ))
         }
 
@@ -86,18 +130,15 @@ public struct Config: Sendable, Equatable {
             if line.isEmpty { continue }
 
             // Table header.
-            if line == "[[product]]" {
-                flushProduct()
-                current = [:]
-                inProductTable = true
-                continue
-            }
             if line.hasPrefix("[") {
-                // Any other table (e.g. [limits_manifest]) — flush product and
-                // ignore the rest in this pass.
-                flushProduct()
-                current = nil
-                inProductTable = false
+                if table == .product { flushProduct() }
+                current = [:]
+                switch line {
+                case "[[product]]": table = .product
+                case "[limits_manifest]": table = .limitsManifest
+                case "[review_notes.limits]": table = .reviewNoteLimits
+                default: table = .other
+                }
                 continue
             }
 
@@ -107,19 +148,38 @@ public struct Config: Sendable, Equatable {
             let valueText = String(line[line.index(after: eq)...]).trimmingCharacters(in: .whitespaces)
             let value = TOMLValue(parsing: valueText)
 
-            if inProductTable {
-                current?[key] = value
-            } else {
-                // Top-level scalars.
+            switch table {
+            case .product:
+                current[key] = value
+            case .limitsManifest:
+                switch key {
+                case "url": config.limitsManifestURL = value.string
+                case "ttl": config.limitsManifestTTL = value.string
+                default: break
+                }
+            case .reviewNoteLimits:
+                guard let n = value.int else { break }
+                switch key {
+                case "pr": config.reviewNoteLimits.pr = n
+                case "asc_reviewer": config.reviewNoteLimits.ascReviewer = n
+                case "what_new_ios": config.reviewNoteLimits.whatNewIOS = n
+                case "what_new_android": config.reviewNoteLimits.whatNewAndroid = n
+                case "asc_update": config.reviewNoteLimits.ascUpdate = n
+                case "gp_update": config.reviewNoteLimits.gpUpdate = n
+                default: break
+                }
+            case .top:
                 switch key {
                 case "base": if let s = value.string { config.base = s }
                 case "model": if let s = value.string { config.model = s }
                 case "api_key": config.apiKey = value.string
                 default: break
                 }
+            case .other:
+                break
             }
         }
-        flushProduct()
+        if table == .product { flushProduct() }
         config.products = products
         return config
     }
@@ -159,5 +219,25 @@ private struct TOMLValue {
         return inner.split(separator: ",").compactMap {
             TOMLValue(parsing: String($0)).string
         }
+    }
+
+    /// A bare integer, e.g. `500`.
+    var int: Int? {
+        Int(raw.trimmingCharacters(in: .whitespaces))
+    }
+
+    /// An inline table of integers, e.g. `{ asc_update = 300, gp_update = 250 }`.
+    var intTable: [String: Int]? {
+        let t = raw.trimmingCharacters(in: .whitespaces)
+        guard t.hasPrefix("{") && t.hasSuffix("}") else { return nil }
+        let inner = t.dropFirst().dropLast()
+        var table: [String: Int] = [:]
+        for pair in inner.split(separator: ",") {
+            guard let eq = pair.firstIndex(of: "=") else { continue }
+            let k = pair[..<eq].trimmingCharacters(in: .whitespaces)
+            let v = Int(pair[pair.index(after: eq)...].trimmingCharacters(in: .whitespaces))
+            if let v { table[k] = v }
+        }
+        return table
     }
 }

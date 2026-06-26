@@ -11,16 +11,39 @@ model = "claude-sonnet-4-6"
 # key here — the env var takes precedence and keeps secrets out of the repo.
 # api_key = "sk-ant-..."
 
-# Product profiles supply voice + links to the user-facing outputs (Phase 2
-# `market`, and the store-update targets of `notes`). Pass --product <id>.
+# Store-cap manifest (PRD §6.1): caps are fetched + cached with a TTL, not
+# hardcoded. Falls back to [review_notes.limits] below when offline or stale.
+# `rw notes ... --refresh-limits` forces a fetch.
+[limits_manifest]
+# url = "https://novarch.lol/recap-wins/limits.json"
+ttl = "30d"
+
+# OFFLINE FALLBACK ceilings (chars). Hard platform caps — never exceeded; the
+# tool WARNS on overflow, it does not truncate. --limit only tightens these.
+[review_notes.limits]
+pr               = 0      # uncapped
+asc_reviewer     = 0      # Apple publishes no cap; form is the authority
+what_new_ios     = 0      # TestFlight "What to Test": no published cap
+what_new_android = 500    # Play testing release notes, per language
+asc_update       = 4000   # App Store "What's New"
+gp_update        = 500    # Google Play release notes, per language
+
+# Product profiles supply voice, platform, and soft length targets to the
+# user-facing `notes` targets (and Phase 2 `market`). Pass --product <id>.
 [[product]]
 id = "ledgerly"
 name = "Ledgerly"
 voice = "clear, trustworthy, private-by-default; money without anxiety"
 links = ["https://novarch.lol/ledgerly"]
+platform = "iOS"
+# Soft editorial aims (chars) the model shoots for, per target. Must be <= the
+# hard ceilings above; the ceiling still hard-stops.
+targets = { asc_update = 300, gp_update = 250, what_new = 350 }
 
 [[product]]
 id = "dots"
 name = "DOTS"
 voice = "calm, reflective; your life in weeks, screen time you can feel"
 links = ["https://novarch.lol/dots"]
+platform = "iOS"
+targets = { asc_update = 220, gp_update = 200, what_new = 300 }   # DOTS runs leaner

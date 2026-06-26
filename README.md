@@ -18,12 +18,13 @@ See [`docs/recap-wins-PRD.md`](docs/recap-wins-PRD.md) for the full product spec
 **Phase 0 — the deterministic core** (done). Offline, no LLM, no network: the
 trustworthy foundation, everything countable and verifiable.
 
-**Phase 1 — the semantic layer** (in progress). Adds model-backed commands that
-turn the change report into prose via the Anthropic API: `rw new` (list new
-features) and `rw notes --pr` (PR description). The core stays offline — only
-these commands reach the network. Store-update targets of `notes`
-(`--asc-update`, `--gp-update`, `--what-new`, `--asc-reviewer`) and the
-`limits.json` cap manifest follow in the next pass; `market` is Phase 2.
+**Phase 1 — the semantic layer** (done). Model-backed commands that turn the
+change report into prose via the Anthropic API: `rw new` (list new features) and
+`rw notes` for every target (`--pr`, `--asc-reviewer`, `--what-new`,
+`--asc-update`, `--gp-update`), in the product's voice, within store char caps.
+Caps come from a TTL-cached `limits.json` manifest with a baked-in offline
+fallback; `--refresh-limits` forces a fetch and `--limit` only tightens. The core
+stays offline — only these commands reach the network. `market` is Phase 2.
 
 ## Install
 
@@ -43,7 +44,7 @@ current branch) and a base ref (default: `main`).
 |---|---|
 | `rw` *(default)* | The **vitals** dashboard — a one-screen health read of the change set | offline |
 | `rw new` | List the new *features* you introduced, filtering out chores/refactors | semantic |
-| `rw notes --pr` | Write a PR description for the change set | semantic |
+| `rw notes <target>` | Write a review/release note for a target (PR, App Review, TestFlight/Play, store update) | semantic |
 | `rw many` | Count features / fixes / chores introduced (conventional-commit parse) | offline |
 | `rw blame` | Attribute who changed what across the change set | offline |
 | `rw branch` | Show which branches contributed commits to this change set | offline |
@@ -69,8 +70,16 @@ to `testthese.toml` to configure the base ref, model, and product profiles.
 ```sh
 export ANTHROPIC_API_KEY=sk-ant-...
 rw new --base main
-rw notes --pr --base main
+rw notes --pr                              # technical PR description, uncapped
+rw notes --asc-update --product ledgerly   # App Store "What's New", in voice, ≤4000
+rw notes --gp-update  --product ledgerly --limit 300   # tighter Play note
 ```
+
+`rw notes` takes exactly one target. The user-facing store targets
+(`--asc-update`, `--gp-update`, `--what-new`) pull voice and a soft length aim
+from the product profile, so pass `--product <id>`. Char caps are hard ceilings:
+the tool **warns** if output overflows, it never silently truncates, and
+`--limit` only tightens (never loosens past the store ceiling).
 
 The deterministic commands (and `--json` on any command) never need a key and
 never touch the network.

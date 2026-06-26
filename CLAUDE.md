@@ -45,10 +45,10 @@ here; the semantic layer consumes it.
 
 - **Phase 0 (done):** deterministic core — `rw` vitals (default), `many`,
   `blame`, `branch`. Offline, no LLM.
-- **Phase 1 (in progress):** semantic layer — `rw new`, `rw notes --pr` via
-  Anthropic API. Store-update `notes` targets (`--asc-update`, `--gp-update`,
-  `--what-new`, `--asc-reviewer`) + the `limits.json` cap manifest are the next
-  pass.
+- **Phase 1 (done):** semantic layer — `rw new` and `rw notes` (all targets:
+  `--pr`, `--asc-reviewer`, `--what-new`, `--asc-update`, `--gp-update`) via the
+  Anthropic API, with product-voice rendering and a TTL-cached `limits.json` cap
+  manifest (offline fallback baked in; `--refresh-limits`, `--limit`).
 - Phase 2: `market` + product profiles.
 - Phase 3: package the core as a universal agent skill.
 - Phase 4: localization. Phase 5: multi-repo (paid open-core line).
@@ -58,6 +58,10 @@ here; the semantic layer consumes it.
 - The vitals path **must stay deterministic** — no model, no network (PRD §7).
 - Risk flags are **advisory, never gates** (PRD §7).
 - A ticket reference is *detected if present*, never *required* (PRD §12).
+- Notes caps are **hard ceilings**: warn on overflow, never silently truncate;
+  `--limit` only tightens, never loosens past the store ceiling (PRD §6.1).
+- Two tiers of limit, don't conflate: hard platform **ceilings** vs soft
+  per-product **targets** the model aims for (PRD §8).
 
 ## Commands
 

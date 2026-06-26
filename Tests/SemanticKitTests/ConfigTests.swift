@@ -78,4 +78,54 @@ struct ConfigTests {
         // and the comment stripper must not truncate at the in-string #.
         #expect(c.base == "main")
     }
+
+    @Test("parses product platform and inline targets table")
+    func platformAndTargets() throws {
+        let c = try Config.parse("""
+        [[product]]
+        id = "dots"
+        name = "DOTS"
+        voice = "calm"
+        platform = "android"
+        targets = { asc_update = 220, gp_update = 200, what_new = 300 }
+        """)
+        let dots = try #require(c.product("dots"))
+        #expect(dots.platform == .android)
+        #expect(dots.softTarget(for: .ascUpdate) == 220)
+        #expect(dots.softTarget(for: .gpUpdate) == 200)
+        #expect(dots.softTarget(for: .whatNew) == 300)
+        #expect(dots.softTarget(for: .pr) == nil)
+    }
+
+    @Test("defaults platform to iOS when unspecified")
+    func defaultPlatform() throws {
+        let c = try Config.parse("""
+        [[product]]
+        id = "x"
+        name = "X"
+        """)
+        #expect(c.product("x")?.platform == .iOS)
+    }
+
+    @Test("parses limits_manifest and review_notes.limits tables")
+    func limitsTables() throws {
+        let c = try Config.parse("""
+        base = "main"
+
+        [limits_manifest]
+        url = "https://example/limits.json"
+        ttl = "30d"
+
+        [review_notes.limits]
+        pr = 0
+        asc_update = 4000
+        gp_update = 500
+        what_new_android = 500
+        """)
+        #expect(c.limitsManifestURL == "https://example/limits.json")
+        #expect(c.limitsManifestTTL == "30d")
+        #expect(c.reviewNoteLimits.ascUpdate == 4000)
+        #expect(c.reviewNoteLimits.gpUpdate == 500)
+        #expect(c.reviewNoteLimits.whatNewAndroid == 500)
+    }
 }
