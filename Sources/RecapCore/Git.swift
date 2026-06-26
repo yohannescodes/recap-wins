@@ -8,6 +8,8 @@ public enum GitError: Error, CustomStringConvertible, Equatable {
     case unexpectedOutput(String)
     /// The working directory isn't inside a git repository.
     case notARepository(path: String)
+    /// A ref couldn't be resolved to a commit (typo, or a repo with no commits).
+    case unresolvableRef(String)
 
     public var description: String {
         switch self {
@@ -19,6 +21,9 @@ public enum GitError: Error, CustomStringConvertible, Equatable {
             return "Unexpected git output: \(detail)"
         case let .notARepository(path):
             return "Not a git repository: \(path)"
+        case let .unresolvableRef(ref):
+            return "Could not resolve ref '\(ref)' to a commit. "
+                + "Check the name, or note that a repo with no commits yet has nothing to diff."
         }
     }
 }
@@ -36,11 +41,17 @@ public struct Git: Sendable {
     }
 
     /// Run `git <arguments>` in the repository and return trimmed stdout.
+    ///
+    /// `core.quotePath=false` is forced on every invocation so git emits UTF-8
+    /// paths literally instead of octal-escaping non-ASCII bytes and wrapping
+    /// them in quotes (e.g. `"caf\303\251.swift"`). Without it, file paths with
+    /// non-ASCII characters come back mangled — a real problem for the
+    /// international repos recap-wins targets.
     @discardableResult
     public func run(_ arguments: [String]) throws -> String {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = ["git"] + arguments
+        process.arguments = ["git", "-c", "core.quotePath=false"] + arguments
         process.currentDirectoryURL = URL(fileURLWithPath: repositoryPath)
 
         let stdout = Pipe()
@@ -89,8 +100,12 @@ public struct Git: Sendable {
 
     /// Resolve a ref to its full commit SHA.
     public func resolve(_ ref: String) throws -> String {
-        try run(["rev-parse", "--verify", "\(ref)^{commit}"])
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        do {
+            return try run(["rev-parse", "--verify", "\(ref)^{commit}"])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        } catch {
+            throw GitError.unresolvableRef(ref)
+        }
     }
 
     /// The merge-base (fork point) of two refs — where the diff is computed from.
