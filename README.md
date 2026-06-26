@@ -1,10 +1,15 @@
 <p align="center">
-  <img src="docs/assets/recap-wins-hero.png" alt="recap-wins — you shipped the branch, now write the PR, the release notes, the tweet. rw does that part." width="100%">
+  <a href="https://novarch.lol/recap-wins"><img src="docs/assets/recap-wins-hero.png" alt="recap-wins — you shipped the branch, now write the PR, the release notes, the tweet. rw does that part." width="100%"></a>
 </p>
 
 # recap-wins
 
 > You shipped the branch. Now write the PR, the release notes, the tweet. `rw` does that part.
+
+[![Homebrew](https://img.shields.io/badge/brew-recap--wins-orange?style=flat-square)](#install)
+[![macOS](https://img.shields.io/badge/macOS-Swift_6-0a0a0c?style=flat-square)](#install)
+[![License: MIT](https://img.shields.io/badge/license-MIT-6e5aff?style=flat-square)](LICENSE)
+[![Site](https://img.shields.io/badge/site-novarch.lol%2Frecap--wins-16d3b4?style=flat-square)](https://novarch.lol/recap-wins)
 
 You're shipping fast — maybe across more than one product. Your tracker has the
 *plan*, but the record of what actually landed drifts: issue titles don't match
@@ -43,8 +48,8 @@ Two kinds of output, depending on the command:
 So the "what did I change" half costs nothing and never leaves your machine. You
 only reach for a key when you want it to do the writing too.
 
-There's a dedicated release page at **[novarch.lol](https://novarch.lol)** with
-downloads and the latest version.
+Prefer a page over a terminal? The releases live at
+**[novarch.lol/recap-wins](https://novarch.lol/recap-wins)**.
 
 ## Install
 
