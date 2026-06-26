@@ -1,0 +1,166 @@
+import Foundation
+import RecapCore
+
+/// Builds prompts for the semantic commands from a deterministic `ChangeReport`.
+///
+/// The model never sees raw git — it sees the already-classified, already-counted
+/// report. That keeps the semantic layer grounded in verifiable facts (the core
+/// did the counting) and the model's job narrow: turn structured change data into
+/// the right prose for the target.
+public enum PromptBuilder {
+    /// A compact, factual rendering of the change set the model reasons over.
+    /// Deterministic text — same report always yields the same context block.
+    public static func contextBlock(_ report: ChangeReport) -> String {
+        var lines: [String] = []
+        let v = report.vitals
+        lines.append("Change set: \(report.range.base)..\(report.range.head)")
+        lines.append("Totals: \(v.features) features, \(v.fixes) fixes, \(v.chores) chores; "
+            + "\(v.filesChanged) files changed (+\(v.insertions)/-\(v.deletions)).")
+
+        let work = report.commits.filter { !$0.isMerge }
+        if !work.isEmpty {
+            lines.append("")
+            lines.append("Commits (type — subject):")
+            for c in work {
+                let scope = c.scope.map { "(\($0))" } ?? ""
+                let breaking = c.breaking ? " [BREAKING]" : ""
+                let ticket = c.ticket.map { " {\($0)}" } ?? ""
+                lines.append("- \(c.type.rawValue)\(scope)\(breaking): \(c.subject)\(ticket)")
+            }
+        }
+
+        if !v.hotspots.isEmpty {
+            lines.append("")
+            lines.append("Most-changed files:")
+            for f in v.hotspots {
+                lines.append("- \(f.path) (+\(f.insertions)/-\(f.deletions))")
+            }
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    /// System + user prompt for `rw new` — list the new user-facing features.
+    public static func newFeatures(_ report: ChangeReport) -> ModelRequest {
+        let system = """
+        You analyze a software change set and list the NEW USER-FACING FEATURES it \
+        introduces. You are given a structured, already-classified summary of the \
+        change — trust its counts and commit types as ground truth.
+
+        Rules:
+        - List only genuinely new capabilities a user or developer would notice. \
+        Fold pure chores, refactors, dependency bumps, formatting, and test-only \
+        changes OUT — they are not features.
+        - Multiple commits often add up to ONE feature; collapse them.
+        - One concise bullet per feature, imperative or noun phrase. No preamble, \
+        no closing summary, no headings. If there are no real features, say exactly \
+        "No new user-facing features in this change set."
+        """
+        let user = "Here is the change set:\n\n\(contextBlock(report))"
+        return ModelRequest(
+            system: system,
+            messages: [ChatMessage(role: .user, text: user)],
+            maxTokens: 800,
+            temperature: 0.3
+        )
+    }
+
+    /// System + user prompt for `rw notes --pr` — a PR description.
+    public static func pullRequestNote(_ report: ChangeReport) -> ModelRequest {
+        let system = """
+        You write a clear, technical PULL REQUEST DESCRIPTION for a reviewer, from \
+        a structured summary of a change set. Trust the provided counts and commit \
+        types as ground truth.
+
+        Structure the description with these sections (use Markdown headings):
+        - "## Summary" — 1-3 sentences on what this change does and why.
+        - "## What changed" — bulleted, grouped logically (features, fixes, chores).
+        - "## Areas to review" — call out the riskiest or highest-churn spots a \
+        reviewer should focus on, informed by the most-changed files.
+
+        Be specific and factual; do not invent changes not present in the summary. \
+        No marketing tone. Output only the description, no preamble.
+        """
+        let user = "Here is the change set:\n\n\(contextBlock(report))"
+        return ModelRequest(
+            system: system,
+            messages: [ChatMessage(role: .user, text: user)],
+            maxTokens: 1500,
+            temperature: 0.4
+        )
+    }
+
+    /// System + user prompt for a `rw notes` target (PRD §6.1). Renders the right
+    /// tone, audience, and length for the destination, in the product's voice
+    /// when the target is user-facing.
+    public static func note(
+        _ report: ChangeReport,
+        target: NoteTarget,
+        product: ProductProfile?,
+        limit: ResolvedLimit
+    ) -> ModelRequest {
+        // --pr keeps its dedicated, section-structured prompt.
+        if target == .pr { return pullRequestNote(report) }
+
+        var system = persona(for: target)
+        if target.usesProductVoice, let product {
+            system += "\n\nWrite in this product's voice: \(product.voice). "
+            system += "The product is named \(product.name)."
+        }
+        system += "\n\n" + lengthGuidance(limit)
+        system += "\n\nGround every claim in the change set below; do not invent " +
+            "changes. Output only the note text, no preamble, no headings unless natural."
+
+        let user = "Here is the change set:\n\n\(contextBlock(report))"
+        return ModelRequest(
+            system: system,
+            messages: [ChatMessage(role: .user, text: user)],
+            maxTokens: maxTokens(for: limit),
+            temperature: target.usesProductVoice ? 0.6 : 0.4
+        )
+    }
+
+    /// The audience/tone instruction per target.
+    private static func persona(for target: NoteTarget) -> String {
+        switch target {
+        case .pr:
+            return "You write a technical PR description."
+        case .ascReviewer:
+            return """
+            You write APP REVIEW NOTES for Apple's App Review team (private, not \
+            shown to users). Cover: what changed in this build, any demo steps or \
+            test credentials a reviewer needs, and why a feature behaves as it does. \
+            Be direct and practical; this is to help a reviewer approve the build.
+            """
+        case .whatNew:
+            return """
+            You write beta-tester release notes ("What to Test"). Tell your testers \
+            what changed in this build and what to exercise. Friendly and concrete.
+            """
+        case .ascUpdate, .gpUpdate:
+            return """
+            You write public app-store release notes ("What's New in This Version"). \
+            User-facing: highlight what's new and improved in plain, benefit-led \
+            language. No internal/technical jargon, no commit hashes.
+            """
+        }
+    }
+
+    /// Length instruction from the resolved limit: aim for the soft target, never
+    /// exceed the hard ceiling.
+    private static func lengthGuidance(_ limit: ResolvedLimit) -> String {
+        if let soft = limit.softTarget {
+            let ceil = limit.ceiling > 0 ? " Never exceed \(limit.ceiling) characters." : ""
+            return "Aim for about \(soft) characters.\(ceil)"
+        }
+        if limit.ceiling > 0 {
+            return "Keep it within \(limit.ceiling) characters — this is a hard limit."
+        }
+        return "Keep it tight and skimmable."
+    }
+
+    private static func maxTokens(for limit: ResolvedLimit) -> Int {
+        // ~4 chars/token; give headroom. Default generous for uncapped targets.
+        let chars = limit.ceiling > 0 ? limit.ceiling : 2000
+        return min(2000, max(400, chars / 2))
+    }
+}

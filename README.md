@@ -15,9 +15,16 @@ See [`docs/recap-wins-PRD.md`](docs/recap-wins-PRD.md) for the full product spec
 
 ## Status
 
-**Phase 0 — the deterministic core.** Offline, no LLM, no network. This is the
-trustworthy foundation: everything countable and verifiable. The semantic layer
-(`new`, `notes`, `market`) lands in later phases.
+**Phase 0 — the deterministic core** (done). Offline, no LLM, no network: the
+trustworthy foundation, everything countable and verifiable.
+
+**Phase 1 — the semantic layer** (done). Model-backed commands that turn the
+change report into prose via the Anthropic API: `rw new` (list new features) and
+`rw notes` for every target (`--pr`, `--asc-reviewer`, `--what-new`,
+`--asc-update`, `--gp-update`), in the product's voice, within store char caps.
+Caps come from a TTL-cached `limits.json` manifest with a baked-in offline
+fallback; `--refresh-limits` forces a fetch and `--limit` only tightens. The core
+stays offline — only these commands reach the network. `market` is Phase 2.
 
 ## Install
 
@@ -35,10 +42,12 @@ current branch) and a base ref (default: `main`).
 
 | Command | What it does |
 |---|---|
-| `rw` *(default)* | The **vitals** dashboard — a one-screen health read of the change set |
-| `rw many` | Count features / fixes / chores introduced (conventional-commit parse) |
-| `rw blame` | Attribute who changed what across the change set |
-| `rw branch` | Show which branches contributed commits to this change set |
+| `rw` *(default)* | The **vitals** dashboard — a one-screen health read of the change set | offline |
+| `rw new` | List the new *features* you introduced, filtering out chores/refactors | semantic |
+| `rw notes <target>` | Write a review/release note for a target (PR, App Review, TestFlight/Play, store update) | semantic |
+| `rw many` | Count features / fixes / chores introduced (conventional-commit parse) | offline |
+| `rw blame` | Attribute who changed what across the change set | offline |
+| `rw branch` | Show which branches contributed commits to this change set | offline |
 
 Shared flags: `--base <ref>`, `--head <ref>`, `--repo <path>`, and `--json`
 (emit the raw `change_report.json` instead of the formatted view).
@@ -47,7 +56,33 @@ Shared flags: `--base <ref>`, `--head <ref>`, `--repo <path>`, and `--json`
 rw --base main             # vitals for the current branch vs main
 rw many --base develop     # feature/fix/chore counts vs develop
 rw --json > report.json    # the structured change report
+rw new                     # semantic: list the new features (needs an API key)
+rw notes --pr              # semantic: a PR description
 ```
+
+### Semantic commands (Phase 1)
+
+`rw new` and `rw notes` call the Anthropic API. Provide a key via the
+`ANTHROPIC_API_KEY` environment variable (preferred) or `api_key` in
+`testthese.toml` — the env var wins. Copy [`testthese.toml.example`](testthese.toml.example)
+to `testthese.toml` to configure the base ref, model, and product profiles.
+
+```sh
+export ANTHROPIC_API_KEY=sk-ant-...
+rw new --base main
+rw notes --pr                              # technical PR description, uncapped
+rw notes --asc-update --product ledgerly   # App Store "What's New", in voice, ≤4000
+rw notes --gp-update  --product ledgerly --limit 300   # tighter Play note
+```
+
+`rw notes` takes exactly one target. The user-facing store targets
+(`--asc-update`, `--gp-update`, `--what-new`) pull voice and a soft length aim
+from the product profile, so pass `--product <id>`. Char caps are hard ceilings:
+the tool **warns** if output overflows, it never silently truncates, and
+`--limit` only tightens (never loosens past the store ceiling).
+
+The deterministic commands (and `--json` on any command) never need a key and
+never touch the network.
 
 ## What the vitals show (PRD §7)
 
@@ -66,7 +101,12 @@ Two cleanly separated layers (PRD §5):
   classifies commits, and builds the `change_report.json`. No model, no network.
   This same core will back the standalone CLI *and* (Phase 3) a universal agent
   skill.
-- **`rw`** — the command-line front end over `RecapCore`.
+- **`SemanticKit`** — the semantic layer (Phase 1). Consumes a `ChangeReport`
+  and calls the Anthropic API (hand-rolled `URLSession`, zero deps) to write
+  prose. Depends on `RecapCore`, never the reverse — the core stays offline. The
+  model call sits behind a `ModelClient` protocol so tests inject a mock and CI
+  needs no key.
+- **`rw`** — the command-line front end over `RecapCore` + `SemanticKit`.
 
 ## Development
 
