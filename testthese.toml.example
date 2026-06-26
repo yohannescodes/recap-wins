@@ -4,8 +4,16 @@
 # Default base ref to diff against. --base on the command line overrides this.
 base = "main"
 
-# Model used by the semantic commands (`new`, `notes`) in CLI mode.
+# Model used by the semantic commands (`new`, `notes`) in API mode.
 model = "claude-sonnet-4-6"
+
+# Which backend writes the prose. --provider on the command line overrides this.
+#   "anthropic" — call the Anthropic API directly (needs a key; pay-as-you-go).
+#   "skill"     — emit JSON for a host agent (Claude Code, Cowork) to complete.
+#                 No API key, no network: the host agent IS the model. This is
+#                 the key-free path if you already pay for Claude via a plan.
+#   "gemini"    — reserved, not yet implemented.
+provider = "anthropic"
 
 # API key. PREFER the ANTHROPIC_API_KEY environment variable over committing a
 # key here — the env var takes precedence and keeps secrets out of the repo.

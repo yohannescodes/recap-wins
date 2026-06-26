@@ -53,6 +53,8 @@ public struct Config: Sendable, Equatable {
     public var limitsManifestTTL: String?
     /// Baked-in offline fallback ceilings from `[review_notes.limits]`.
     public var reviewNoteLimits: ReviewNoteLimits
+    /// Which backend renders prose. Default `anthropic`; `--provider` overrides.
+    public var provider: Provider
 
     public static let defaultModel = "claude-sonnet-4-6"
 
@@ -63,7 +65,8 @@ public struct Config: Sendable, Equatable {
         products: [ProductProfile] = [],
         limitsManifestURL: String? = nil,
         limitsManifestTTL: String? = nil,
-        reviewNoteLimits: ReviewNoteLimits = .fallback
+        reviewNoteLimits: ReviewNoteLimits = .fallback,
+        provider: Provider = .anthropic
     ) {
         self.base = base
         self.model = model
@@ -72,6 +75,7 @@ public struct Config: Sendable, Equatable {
         self.limitsManifestURL = limitsManifestURL
         self.limitsManifestTTL = limitsManifestTTL
         self.reviewNoteLimits = reviewNoteLimits
+        self.provider = provider
     }
 
     /// Look up a product profile by id.
@@ -173,6 +177,8 @@ public struct Config: Sendable, Equatable {
                 case "base": if let s = value.string { config.base = s }
                 case "model": if let s = value.string { config.model = s }
                 case "api_key": config.apiKey = value.string
+                case "provider":
+                    if let s = value.string, let p = Provider(rawValue: s) { config.provider = p }
                 default: break
                 }
             case .other:
