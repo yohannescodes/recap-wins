@@ -1,0 +1,26 @@
+# recap-wins config (PRD §8). Copy to `testthese.toml` in your repo root.
+# Per-repo, human-readable. No global state, no accounts.
+
+# Default base ref to diff against. --base on the command line overrides this.
+base = "main"
+
+# Model used by the semantic commands (`new`, `notes`) in CLI mode.
+model = "claude-sonnet-4-6"
+
+# API key. PREFER the ANTHROPIC_API_KEY environment variable over committing a
+# key here — the env var takes precedence and keeps secrets out of the repo.
+# api_key = "sk-ant-..."
+
+# Product profiles supply voice + links to the user-facing outputs (Phase 2
+# `market`, and the store-update targets of `notes`). Pass --product <id>.
+[[product]]
+id = "ledgerly"
+name = "Ledgerly"
+voice = "clear, trustworthy, private-by-default; money without anxiety"
+links = ["https://novarch.lol/ledgerly"]
+
+[[product]]
+id = "dots"
+name = "DOTS"
+voice = "calm, reflective; your life in weeks, screen time you can feel"
+links = ["https://novarch.lol/dots"]

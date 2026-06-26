@@ -22,9 +22,17 @@ before making product decisions.
   or network dependencies. This is the engine the CLI and (Phase 3) the agent
   skill both consume. Keep it that way: nothing in `RecapCore` should import
   ArgumentParser or make network calls.
-- `Sources/rw/` — the `rw` command-line front end over `RecapCore`.
-- `Tests/RecapCoreTests/` — Swift Testing, exercising the core against real git
-  fixtures (`GitFixture` builds throwaway repos in temp dirs).
+- `Sources/SemanticKit/` — the **semantic layer** (Phase 1). Consumes a
+  `ChangeReport` and calls the Anthropic API to write prose. Depends on
+  `RecapCore`; **never** the reverse. The model call is behind the `ModelClient`
+  protocol — production uses `AnthropicClient` (hand-rolled `URLSession`, zero
+  deps), tests inject a mock so CI stays offline and keyless. API key from
+  `ANTHROPIC_API_KEY` (env wins) or `api_key` in config.
+- `Sources/rw/` — the `rw` command-line front end over `RecapCore` +
+  `SemanticKit`.
+- `Tests/RecapCoreTests/` — Swift Testing against real git fixtures (`GitFixture`
+  builds throwaway repos in temp dirs). `Tests/SemanticKitTests/` — config
+  parsing, prompt building, and engine logic via a `MockModelClient`.
 
 ## The contract
 
@@ -37,7 +45,10 @@ here; the semantic layer consumes it.
 
 - **Phase 0 (done):** deterministic core — `rw` vitals (default), `many`,
   `blame`, `branch`. Offline, no LLM.
-- Phase 1: `new`, `notes` via Anthropic API.
+- **Phase 1 (in progress):** semantic layer — `rw new`, `rw notes --pr` via
+  Anthropic API. Store-update `notes` targets (`--asc-update`, `--gp-update`,
+  `--what-new`, `--asc-reviewer`) + the `limits.json` cap manifest are the next
+  pass.
 - Phase 2: `market` + product profiles.
 - Phase 3: package the core as a universal agent skill.
 - Phase 4: localization. Phase 5: multi-repo (paid open-core line).

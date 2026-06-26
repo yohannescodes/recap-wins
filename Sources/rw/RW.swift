@@ -12,7 +12,7 @@ struct RW: ParsableCommand {
         commandName: "rw",
         abstract: "recap-wins — see what your branch introduced, offline and instant.",
         version: "0.1.0",
-        subcommands: [Many.self, Blame.self, Branch.self]
+        subcommands: [New.self, Notes.self, Many.self, Blame.self, Branch.self]
     )
 
     @OptionGroup var options: ChangeSetOptions

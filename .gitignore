@@ -12,6 +12,9 @@ DerivedData/
 # Secrets / local config
 .env
 *.local
+# Real config may carry an api_key — never commit it. The .example is tracked.
+testthese.toml
+.testtheserc
 
 # Editor
 .vscode/
