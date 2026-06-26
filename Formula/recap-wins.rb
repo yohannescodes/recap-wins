@@ -11,7 +11,7 @@ class RecapWins < Formula
   desc "See what your branch introduced — vitals, feature lists, PR & store notes"
   homepage "https://github.com/yohannescodes/recap-wins"
   url "https://github.com/yohannescodes/recap-wins/archive/refs/tags/v0.1.1.tar.gz"
-  sha256 "PENDING_TAG_v0.1.1"
+  sha256 "879378de3ba56482b8d8d5e28ff21b615b7859b84820ae199548df9f168b1df3"
   license "MIT"
   head "https://github.com/yohannescodes/recap-wins.git", branch: "main"
 
