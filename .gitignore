@@ -1,0 +1,18 @@
+# macOS
+.DS_Store
+
+# Swift / SwiftPM
+.build/
+.swiftpm/
+Package.resolved
+*.xcodeproj
+*.xcworkspace
+DerivedData/
+
+# Secrets / local config
+.env
+*.local
+
+# Editor
+.vscode/
+.idea/
