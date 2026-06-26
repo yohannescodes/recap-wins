@@ -6,8 +6,7 @@ Guidance for working in this repo.
 
 `recap-wins` (binary `rw`) — a local, offline, terminal-first tool that diffs a
 branch vs a base ref and reassembles "what shipped" into vitals, feature lists,
-review notes, and marketing copy. Full spec: `docs/recap-wins-PRD.md`. Read it
-before making product decisions.
+review notes, and marketing copy.
 
 ## Stack
 
