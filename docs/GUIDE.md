@@ -195,12 +195,15 @@ The semantic commands run through a **provider**, chosen by the `provider` key i
 | Provider | Needs a key? | What it does |
 |---|---|---|
 | `anthropic` *(default)* | yes | Calls the Anthropic API and prints the prose |
+| `gemini` | yes | Calls the Google Gemini API and prints the prose |
 | `skill` | **no** | Emits JSON for a host agent to complete (see §7) |
-| `gemini` | — | Reserved; not yet implemented |
 
-**API key** (`anthropic` only): set `ANTHROPIC_API_KEY` (preferred) or `api_key`
-in `testthese.toml`. The environment variable wins. If neither is set, the
-semantic commands exit with a clear message — not a crash.
+**API key** (`anthropic` / `gemini`): set the provider's env var —
+`ANTHROPIC_API_KEY` or `GEMINI_API_KEY` (preferred) — or `api_key` in
+`testthese.toml`. The environment variable wins. With `gemini` selected and the
+`model` left at the Anthropic default, `rw` automatically uses a Gemini default
+model. If no key is set, the semantic commands exit with a clear message — not a
+crash.
 
 > A Claude **Max/Pro plan** covers claude.ai and Claude Code, **not** the
 > pay-as-you-go Anthropic API. If you don't have API credits, use skill mode (§7)
@@ -345,8 +348,9 @@ git work tree.
 don't use conventional-commit prefixes, so they bucket as chores. Use `rw new`
 (semantic), which reads the diff and recovers the real features.
 
-**`No Anthropic API key`** — set `ANTHROPIC_API_KEY`, or use
-`--provider skill` for the key-free path (§7).
+**`No Anthropic API key` / `No Gemini API key`** — set the provider's env var
+(`ANTHROPIC_API_KEY` or `GEMINI_API_KEY`), or use `--provider skill` for the
+key-free path (§7).
 
 **Output overflows a store cap** — `rw` warns but doesn't truncate. Tighten with
 `--limit <n>`, or regenerate; the store form is the final authority.

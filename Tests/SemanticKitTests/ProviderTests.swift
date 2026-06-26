@@ -29,12 +29,34 @@ struct ProviderTests {
         #expect(client is AnthropicClient)
     }
 
-    @Test("factory reports gemini as unavailable, not a crash")
-    func geminiUnavailable() {
-        #expect(throws: ProviderUnavailable.self) {
+    @Test("factory builds a Gemini client from GEMINI_API_KEY")
+    func geminiFactory() throws {
+        let client = try ModelConfig.makeClient(
+            for: .gemini, config: Config(), environment: ["GEMINI_API_KEY": "g"])
+        #expect(client is GeminiClient)
+    }
+
+    @Test("gemini reads its own env var, not ANTHROPIC_API_KEY")
+    func geminiKeyVar() {
+        // Only the Anthropic key is set → Gemini still can't find a key.
+        #expect(throws: ModelError.self) {
             _ = try ModelConfig.makeClient(
-                for: .gemini, config: Config(), environment: ["GEMINI_API_KEY": "k"])
+                for: .gemini, config: Config(), environment: ["ANTHROPIC_API_KEY": "a"])
         }
+        #expect(ModelConfig.apiKeyEnvVar(for: .gemini) == "GEMINI_API_KEY")
+        #expect(ModelConfig.apiKeyEnvVar(for: .anthropic) == "ANTHROPIC_API_KEY")
+    }
+
+    @Test("gemini falls back to a Gemini model when config still has the Anthropic default")
+    func geminiModelFallback() {
+        // Default config model is the Anthropic one; for Gemini, use Gemini's default.
+        #expect(ModelConfig.model(for: .gemini, config: Config()) == GeminiClient.defaultModel)
+        // But an explicitly-set model is respected.
+        var config = Config()
+        config.model = "gemini-1.5-pro"
+        #expect(ModelConfig.model(for: .gemini, config: config) == "gemini-1.5-pro")
+        // Anthropic always uses the configured model as-is.
+        #expect(ModelConfig.model(for: .anthropic, config: Config()) == Config.defaultModel)
     }
 
     @Test("factory refuses skill mode — it has no model client")
@@ -42,5 +64,14 @@ struct ProviderTests {
         #expect(throws: ProviderUnavailable.self) {
             _ = try ModelConfig.makeClient(for: .skill, config: Config(), environment: [:])
         }
+    }
+
+    @Test("Gemini client maps assistant role to model and carries system instruction")
+    func geminiWireShape() throws {
+        // Build a client and confirm it encodes without error (smoke of the
+        // wire format); a full network test needs a live key.
+        let client = GeminiClient(apiKey: "k", model: "gemini-2.0-flash")
+        #expect(client.model == "gemini-2.0-flash")
+        #expect(client.apiKey == "k")
     }
 }

@@ -72,7 +72,7 @@ struct SemanticEngineTests {
     @Test("engine propagates model errors")
     func engineError() async {
         let mock = MockModelClient()
-        mock.errorToThrow = ModelError.missingAPIKey
+        mock.errorToThrow = ModelError.missingAPIKey(provider: .anthropic)
         let engine = SemanticEngine(client: mock)
         await #expect(throws: ModelError.self) {
             _ = try await engine.newFeatures(sampleReport())
