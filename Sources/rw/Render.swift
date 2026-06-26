@@ -1,5 +1,6 @@
 import Foundation
 import RecapCore
+import SemanticKit
 
 /// Minimal ANSI styling for the terminal views. Honors `NO_COLOR` and skips
 /// color when stdout isn't a TTY (e.g. piped to a file).
@@ -149,6 +150,32 @@ enum Render {
         }
         if report.branches.isEmpty {
             lines.append("  " + Style.dim("none"))
+        }
+        lines.append("")
+        return lines.joined(separator: "\n")
+    }
+
+    /// `rw market` — the rendered content pack.
+    static func marketPack(
+        _ results: [MarketPieceResult],
+        product: ProductProfile,
+        limits: MarketLimits
+    ) -> String {
+        var lines: [String] = []
+        lines.append(Style.bold("Marketing pack") + Style.dim("  \(product.name)"))
+        for r in results {
+            lines.append("")
+            // Title, with the char count and (if any) the cap.
+            let ceiling = r.piece.ceiling(limits)
+            let count = ceiling > 0
+                ? Style.dim("  \(r.text.count)/\(ceiling) chars")
+                : Style.dim("  \(r.text.count) chars")
+            let warn = r.overflowWarning != nil ? Style.yellow("  ⚠ over cap") : ""
+            lines.append("  " + Style.bold(r.piece.title) + count + warn)
+            // The copy itself, indented.
+            for line in r.text.split(separator: "\n", omittingEmptySubsequences: false) {
+                lines.append("    " + String(line))
+            }
         }
         lines.append("")
         return lines.joined(separator: "\n")

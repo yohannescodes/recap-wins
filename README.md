@@ -21,8 +21,8 @@ See [`docs/recap-wins-PRD.md`](docs/recap-wins-PRD.md) for the full product spec
 | **Semantic commands** — `new`, `notes` (all five targets) with product voice + store caps | ✅ done |
 | **Provider switching** — `anthropic` (API) and `skill` (key-free) backends | ✅ done |
 | **Agent-skill packaging** — `SKILL.md` + runner, droppable into any skill-aware agent | ✅ done |
-| **Marketing** — `market` + the five product profiles | 🔜 next |
-| **Gemini provider** — second API backend | ⏳ reserved |
+| **Marketing** — `market` content pack in a product's voice | ✅ done |
+| **Gemini provider** — second API backend | 🔜 next |
 | **Localization, multi-repo** — per-locale store copy; `--all-repos` digest | ⏳ later |
 
 The deterministic core is fully offline and needs no key. The semantic commands
@@ -52,6 +52,7 @@ current branch) and a base ref (default: `main`).
 | `rw` *(default)* | The **vitals** dashboard — a one-screen health read of the change set | offline |
 | `rw new` | List the new *features* you introduced, filtering out chores/refactors | semantic |
 | `rw notes <target>` | Write a review/release note for a target (PR, App Review, TestFlight/Play, store update) | semantic |
+| `rw market --product <id>` | Generate a marketing content pack (What's New, promo text, subtitle, post, tweet…) in the product's voice | semantic |
 | `rw many` | Count features / fixes / chores introduced (conventional-commit parse) | offline |
 | `rw blame` | Attribute who changed what across the change set | offline |
 | `rw branch` | Show which branches contributed commits to this change set | offline |
@@ -101,7 +102,16 @@ rw new --base main
 rw notes --pr                              # technical PR description, uncapped
 rw notes --asc-update --product ledgerly   # App Store "What's New", in voice, ≤4000
 rw notes --gp-update  --product ledgerly --limit 300   # tighter Play note
+rw market --product ledgerly               # a full marketing pack in the product's voice
+rw market --product ledgerly --pieces tweet,post   # just the social pieces
 ```
+
+`rw market` produces a **pack** of marketing pieces for the new features —
+What's New, App Store promotional text / subtitle, Google Play short description,
+a social post, and a tweet — each in the product's voice and within its store
+metadata cap (warns on overflow, never truncates). It's distinct from
+`rw notes --asc-update`, which emits the store-native release-note block; `market`
+is the broader announcement set. Pick specific pieces with `--pieces`.
 
 Copy [`testthese.toml.example`](testthese.toml.example) to `testthese.toml` to
 configure the base ref, model, provider, and product profiles.
@@ -164,14 +174,12 @@ Two cleanly separated layers (PRD §5):
 
 Roadmap, in order (full detail in the [PRD](docs/recap-wins-PRD.md) §11):
 
-1. **`rw market`** — a marketing content pack (App Store "What's New", short post,
-   tweet) in a product's voice, plus the five Novarch product profiles.
-2. **Gemini provider** — a second API backend behind the existing provider seam,
+1. **Gemini provider** — a second API backend behind the existing provider seam,
    so you can switch models/providers from config.
-3. **Localization** — per-locale variants of the user-facing outputs, with
+2. **Localization** — per-locale variants of the user-facing outputs, with
    per-language store caps re-checked (translations routinely overflow a limit
    the English version cleared).
-4. **Multi-repo** — an `--all-repos` digest ("what did I touch across every repo
+3. **Multi-repo** — an `--all-repos` digest ("what did I touch across every repo
    this week"). Held back as the paid open-core layer.
 
 ## Development

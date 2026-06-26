@@ -11,7 +11,7 @@ struct Help: ParsableCommand {
         abstract: "Show the recap-wins guide. `rw help <topic>` drills into one area."
     )
 
-    @Argument(help: "Optional topic: commands, notes, providers, skill, config, concepts.")
+    @Argument(help: "Optional topic: commands, notes, market, providers, skill, config, concepts.")
     var topic: String?
 
     func run() {
@@ -25,6 +25,8 @@ struct Help: ParsableCommand {
             page = HelpText.commands
         case "notes", "note":
             page = HelpText.notes
+        case "market", "marketing":
+            page = HelpText.market
         case "providers", "provider", "modes", "mode":
             page = HelpText.providers
         case "skill", "skills", "agent":
@@ -69,6 +71,7 @@ enum HelpText {
           \(cmd("rw help concepts"))   the change-set model: repo / base / head
           \(cmd("rw help commands"))   every command, with examples
           \(cmd("rw help notes"))      the notes targets and char caps
+          \(cmd("rw help market"))     the marketing content pack
           \(cmd("rw help providers"))  anthropic vs skill vs gemini
           \(cmd("rw help skill"))      use rw inside an agent with no API key
           \(cmd("rw help config"))     testthese.toml: base, model, products
@@ -139,6 +142,10 @@ enum HelpText {
           One target flag picks the destination. See \(cmd("rw help notes")).
           \(cmd("rw notes --pr"))   \(cmd("rw notes --asc-update --product ledgerly"))
 
+        \(h("rw market --product <id>")) \(dim("— marketing content pack")) \(dim("· semantic"))
+          A pack of announcement pieces in the product's voice. See \(cmd("rw help market")).
+          \(cmd("rw market --product ledgerly"))   \(cmd("rw market --product ledgerly --pieces tweet,post"))
+
         \(h("GLOBAL"))
           \(cmd("--repo <path>"))  \(cmd("--base <ref>"))  \(cmd("--head <ref>"))  \(cmd("--json"))
           \(dim("--json emits the raw change_report.json on any command — offline, no key."))
@@ -173,6 +180,33 @@ enum HelpText {
         \(h("PLATFORM"))
           --what-new keys off the product's platform: generous on iOS (TestFlight),
           tight on Android (Play, 500/lang). Set platform in the product profile.
+        """
+    }
+
+    static var market: String {
+        """
+        \(h("rw market — marketing content pack"))
+
+        \(cmd("rw market --product <id>")) generates a pack of marketing pieces for the
+        new features, in the product's voice. A \(h("product is required")) for voice.
+
+        \(h("PIECES")) \(dim("(--pieces to select; default is all)"))
+          \(cmd("whatsNew"))          App Store \"What's New\" announcement \(dim("(uncapped)"))
+          \(cmd("promotionalText"))   App Store promotional text \(dim("(≤170)"))
+          \(cmd("subtitle"))          App Store subtitle \(dim("(≤30)"))
+          \(cmd("shortDescription"))  Google Play short description \(dim("(≤80)"))
+          \(cmd("post"))              a short social post \(dim("(uncapped)"))
+          \(cmd("tweet"))             a tweet \(dim("(≤280)"))
+
+        \(h("EXAMPLES"))
+          \(cmd("rw market --product ledgerly"))                full pack
+          \(cmd("rw market --product ledgerly --pieces tweet,post"))   just social
+          \(cmd("rw market --product ledgerly --provider skill"))      key-free (host agent)
+
+        \(h("VS notes"))
+          market is the broad ANNOUNCEMENT pack (post, tweet, blurbs). The store
+          release-note block lives in \(cmd("rw notes --asc-update")) / \(cmd("--gp-update")).
+          Caps are hard ceilings — market warns on overflow, never truncates.
         """
     }
 
@@ -258,7 +292,7 @@ enum HelpText {
         """
         \(Style.yellow("Unknown help topic:")) \(topic)
 
-        Try one of: overview, concepts, commands, notes, providers, skill, config.
+        Try one of: overview, concepts, commands, notes, market, providers, skill, config.
         \(Style.dim("e.g. `rw help notes`"))
         """
     }

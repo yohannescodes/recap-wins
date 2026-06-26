@@ -98,4 +98,39 @@ public extension SkillEnvelope {
             report: report
         )
     }
+
+    /// Build one envelope per piece of a `rw market` pack. The host agent writes
+    /// each piece from its own system prompt and cap.
+    static func forMarket(
+        _ report: ChangeReport,
+        pieces: [MarketPiece],
+        product: ProductProfile,
+        limits: MarketLimits
+    ) -> [SkillEnvelope] {
+        pieces.map { piece in
+            let ceiling = piece.ceiling(limits)
+            let req = PromptBuilder.marketPiece(
+                report, piece: piece, product: product, ceiling: ceiling)
+            var instruction = "Write the \(piece.title) marketing copy, following the system prompt."
+            if ceiling > 0 { instruction += " Stay within \(ceiling) characters." }
+            return SkillEnvelope(
+                command: "market",
+                target: piece.rawValue,
+                instruction: instruction,
+                system: req.system,
+                user: req.messages.first?.text ?? "",
+                softTargetChars: nil,
+                ceilingChars: ceiling,
+                report: report
+            )
+        }
+    }
+}
+
+/// A pretty JSON array of envelopes (skill-mode `market` output).
+public func skillEnvelopesJSON(_ envelopes: [SkillEnvelope]) throws -> String {
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+    encoder.dateEncodingStrategy = .iso8601
+    return String(decoding: try encoder.encode(envelopes), as: UTF8.self)
 }

@@ -131,6 +131,7 @@ rw --json             # the same data as raw change_report.json
 | `rw branch` | which branches contributed | offline |
 | `rw new` | list the new user-facing features | semantic |
 | `rw notes <target>` | write a review/release note | semantic |
+| `rw market --product <id>` | a marketing content pack in the product's voice | semantic |
 | `rw help [topic]` | the built-in guide | — |
 
 Global flags on every command: `--repo`, `--base`, `--head`, and `--json` (emit

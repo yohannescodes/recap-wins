@@ -57,4 +57,31 @@ public struct SemanticEngine: Sendable {
         }
         return NoteResult(text: text, overflowWarning: warning)
     }
+
+    /// `rw market` — render a content pack for the new features in a product's
+    /// voice (PRD §6). Each requested piece is generated independently so a long
+    /// social post and a 30-char subtitle don't constrain each other.
+    public func marketPack(
+        _ report: ChangeReport,
+        pieces: [MarketPiece],
+        product: ProductProfile,
+        limits: MarketLimits
+    ) async throws -> [MarketPieceResult] {
+        var results: [MarketPieceResult] = []
+        for piece in pieces {
+            let ceiling = piece.ceiling(limits)
+            let request = PromptBuilder.marketPiece(
+                report, piece: piece, product: product, ceiling: ceiling)
+            let text = try await client.complete(request)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+
+            var warning: String?
+            if ceiling > 0 && text.count > ceiling {
+                warning = "\(text.count) chars, over the \(ceiling)-char limit for "
+                    + "\(piece.title). Tighten before publishing — not truncated."
+            }
+            results.append(MarketPieceResult(piece: piece, text: text, overflowWarning: warning))
+        }
+        return results
+    }
 }
