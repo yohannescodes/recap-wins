@@ -55,9 +55,13 @@ current branch) and a base ref (default: `main`).
 | `rw many` | Count features / fixes / chores introduced (conventional-commit parse) | offline |
 | `rw blame` | Attribute who changed what across the change set | offline |
 | `rw branch` | Show which branches contributed commits to this change set | offline |
+| `rw help [topic]` | The built-in guide — `concepts`, `notes`, `providers`, `skill`, `config` | — |
 
 Shared flags: `--base <ref>`, `--head <ref>`, `--repo <path>`, and `--json`
 (emit the raw `change_report.json` instead of the formatted view).
+
+New to `rw`? Run **`rw help`** for the in-terminal guide, or read the full
+[**User Guide**](docs/GUIDE.md).
 
 ```sh
 rw --base main             # vitals for the current branch vs main

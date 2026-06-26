@@ -11,8 +11,10 @@ struct RW: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "rw",
         abstract: "recap-wins — see what your branch introduced, offline and instant.",
+        discussion: "Run `rw help` for the full guide, or `rw help <topic>` "
+            + "(concepts, commands, notes, providers, skill, config).",
         version: "0.1.0",
-        subcommands: [New.self, Notes.self, Many.self, Blame.self, Branch.self]
+        subcommands: [New.self, Notes.self, Many.self, Blame.self, Branch.self, Help.self]
     )
 
     @OptionGroup var options: ChangeSetOptions
