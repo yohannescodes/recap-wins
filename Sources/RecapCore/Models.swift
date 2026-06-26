@@ -114,6 +114,11 @@ public struct Commit: Codable, Sendable, Equatable {
     public var isMerge: Bool
     /// Detected ticket reference (Linear/JIRA/GitHub) if present. Never required.
     public var ticket: String?
+    /// For commits with no conventional prefix (`type == .other`), a heuristic
+    /// guess at the bucket from the subject + diff. `nil` when `type` is already
+    /// conventional, or when no confident guess was possible. The parsed `type`
+    /// is never overwritten — this keeps declared-vs-inferred honest (PRD §7).
+    public var inferredBucket: CommitType.Bucket?
 
     public init(
         sha: String,
@@ -126,7 +131,8 @@ public struct Commit: Codable, Sendable, Equatable {
         scope: String?,
         breaking: Bool,
         isMerge: Bool,
-        ticket: String?
+        ticket: String?,
+        inferredBucket: CommitType.Bucket? = nil
     ) {
         self.sha = sha
         self.shortSHA = shortSHA
@@ -139,6 +145,19 @@ public struct Commit: Codable, Sendable, Equatable {
         self.breaking = breaking
         self.isMerge = isMerge
         self.ticket = ticket
+        self.inferredBucket = inferredBucket
+    }
+
+    /// The bucket used for counting: the conventional bucket when the commit has
+    /// a recognized prefix, otherwise the inferred guess, falling back to chore.
+    public var effectiveBucket: CommitType.Bucket {
+        if type != .other { return type.bucket }
+        return inferredBucket ?? .chore
+    }
+
+    /// True if this commit's bucket came from inference, not a declared prefix.
+    public var isInferred: Bool {
+        type == .other && inferredBucket != nil
     }
 }
 
@@ -201,6 +220,10 @@ public struct Vitals: Codable, Sendable, Equatable {
     public var branchCount: Int
     /// The few files with the largest churn, already sorted descending.
     public var hotspots: [FileChange]
+    /// How many of the counted commits were bucketed by inference rather than a
+    /// declared conventional-commit prefix. `0` means every count is from a
+    /// declared type. Lets the UI flag when a number isn't purely declared.
+    public var inferredCount: Int
 
     public init(
         features: Int,
@@ -211,7 +234,8 @@ public struct Vitals: Codable, Sendable, Equatable {
         deletions: Int,
         contributors: [Contributor],
         branchCount: Int,
-        hotspots: [FileChange]
+        hotspots: [FileChange],
+        inferredCount: Int = 0
     ) {
         self.features = features
         self.fixes = fixes
@@ -222,6 +246,7 @@ public struct Vitals: Codable, Sendable, Equatable {
         self.contributors = contributors
         self.branchCount = branchCount
         self.hotspots = hotspots
+        self.inferredCount = inferredCount
     }
 }
 

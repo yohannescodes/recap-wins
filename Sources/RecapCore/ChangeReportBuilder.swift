@@ -37,8 +37,9 @@ public struct ChangeReportBuilder {
             baseSHA: baseSHA, headSHA: headSHA, mergeBaseSHA: mergeBaseSHA
         )
 
-        let commits = try loadCommits(mergeBase: mergeBaseSHA, head: headSHA)
+        let rawCommits = try loadCommits(mergeBase: mergeBaseSHA, head: headSHA)
         let files = try loadFileChanges(mergeBase: mergeBaseSHA, head: headSHA)
+        let commits = inferBuckets(for: rawCommits, files: files)
         let branches = try loadBranches(mergeBase: mergeBaseSHA, headRef: head)
         let vitals = buildVitals(commits: commits, files: files, branchCount: branches.count)
         let risk = RiskHeuristics.evaluate(files: files, thresholds: riskThresholds)
@@ -196,18 +197,38 @@ public struct ChangeReportBuilder {
         return branches
     }
 
+    // MARK: - Inference
+
+    /// Enrich `.other` commits with an inferred bucket from the subject + diff.
+    /// Conventional commits are left untouched — only non-prefixed commits get a
+    /// guess, recorded in `inferredBucket` (the parsed `type` is never changed).
+    func inferBuckets(for commits: [Commit], files: [FileChange]) -> [Commit] {
+        let addedSourceFiles = files.contains {
+            $0.status == "A" && CommitClassifier.isSourceFile($0.path)
+        }
+        return commits.map { commit in
+            guard commit.type == .other, !commit.isMerge else { return commit }
+            var enriched = commit
+            enriched.inferredBucket = CommitClassifier.infer(
+                subject: commit.subject, addedSourceFiles: addedSourceFiles)
+            return enriched
+        }
+    }
+
     // MARK: - Vitals
 
     func buildVitals(commits: [Commit], files: [FileChange], branchCount: Int) -> Vitals {
         // Bucket non-merge commits; merges aren't "work introduced".
         let work = commits.filter { !$0.isMerge }
         var features = 0, fixes = 0, chores = 0
+        var inferredCount = 0
         for c in work {
-            switch c.type.bucket {
+            switch c.effectiveBucket {
             case .feature: features += 1
             case .fix: fixes += 1
             case .chore: chores += 1
             }
+            if c.isInferred { inferredCount += 1 }
         }
 
         let insertions = files.reduce(0) { $0 + $1.insertions }
@@ -243,7 +264,8 @@ public struct ChangeReportBuilder {
             deletions: deletions,
             contributors: contributors,
             branchCount: branchCount,
-            hotspots: Array(hotspots)
+            hotspots: Array(hotspots),
+            inferredCount: inferredCount
         )
     }
 }
