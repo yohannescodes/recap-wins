@@ -23,6 +23,7 @@ See [`docs/recap-wins-PRD.md`](docs/recap-wins-PRD.md) for the full product spec
 | **Agent-skill packaging** — `SKILL.md` + runner, droppable into any skill-aware agent | ✅ done |
 | **Marketing** — `market` content pack in a product's voice | ✅ done |
 | **Gemini provider** — second API backend (`--provider gemini`) | ✅ done |
+| **Distribution** — Homebrew tap, `brew install recap-wins` | ✅ done |
 | **Localization, multi-repo** — per-locale store copy; `--all-repos` digest | ⏳ later |
 
 The deterministic core is fully offline and needs no key. The semantic commands
@@ -31,6 +32,20 @@ emitting JSON for a host agent to complete (`skill` — no key, no network). See
 [What's coming next](#whats-coming-next) for the roadmap.
 
 ## Install
+
+### Homebrew (recommended)
+
+This repo is its own tap, so one command installs the `rw` binary:
+
+```sh
+brew tap yohannescodes/recap-wins https://github.com/yohannescodes/recap-wins
+brew install recap-wins
+```
+
+Upgrade later with `brew upgrade recap-wins`. (Building the formula compiles from
+source via Swift, so the first install takes a minute.)
+
+### From source
 
 Requires Swift 6 and a recent macOS.
 
@@ -178,13 +193,14 @@ Two cleanly separated layers (PRD §5):
 
 Roadmap, in order (full detail in the [PRD](docs/recap-wins-PRD.md) §11):
 
-1. **Distribution** — a Homebrew tap / install story so `rw` is a one-command
-   install rather than build-from-source.
-2. **Localization** — per-locale variants of the user-facing outputs, with
+1. **Localization** — per-locale variants of the user-facing outputs, with
    per-language store caps re-checked (translations routinely overflow a limit
    the English version cleared).
-3. **Multi-repo** — an `--all-repos` digest ("what did I touch across every repo
+2. **Multi-repo** — an `--all-repos` digest ("what did I touch across every repo
    this week"). Held back as the paid open-core layer.
+
+Releases are cut via a Homebrew formula built from a source tag — see
+[docs/RELEASING.md](docs/RELEASING.md).
 
 ## Development
 
