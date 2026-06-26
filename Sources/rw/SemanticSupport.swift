@@ -21,15 +21,28 @@ extension ChangeSetOptions {
         return try builder.build(base: resolvedBase, head: head)
     }
 
-    /// Resolve a live model client, mapping a missing key to a clean exit.
-    func makeSemanticEngine(config: Config) throws -> SemanticEngine {
+    /// Resolve a live model client for an API provider, mapping a missing key or
+    /// unavailable provider to a clean exit.
+    func makeSemanticEngine(config: Config, provider: Provider) throws -> SemanticEngine {
         do {
-            let client = try ModelConfig.makeClient(config: config)
+            let client = try ModelConfig.makeClient(for: provider, config: config)
             return SemanticEngine(client: client)
         } catch let error as ModelError {
             throw ValidationError(error.description)
+        } catch let error as ProviderUnavailable {
+            throw ValidationError(error.description)
         }
     }
+}
+
+/// The provider for this run: `--provider` overrides config (PRD: config + flag).
+func resolveProvider(flag: String?, config: Config) throws -> Provider {
+    guard let flag else { return config.provider }
+    guard let provider = Provider(rawValue: flag) else {
+        throw ValidationError(
+            "Unknown provider '\(flag)'. Options: \(Provider.allCases.map(\.rawValue).joined(separator: ", ")).")
+    }
+    return provider
 }
 
 /// Run an async throwing body from a synchronous `run()`, surfacing model errors

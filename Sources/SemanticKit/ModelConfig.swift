@@ -28,4 +28,30 @@ public enum ModelConfig {
         let key = try resolveAPIKey(config: config, environment: environment)
         return AnthropicClient(apiKey: key, model: config.model)
     }
+
+    /// Build a `ModelClient` for an API-calling provider. Skill mode does not go
+    /// through here — it emits a `SkillEnvelope` instead of calling a model.
+    ///
+    /// This is the single place a new provider plugs in: add a `case` returning
+    /// its client. Gemini is reserved here as the next slot.
+    public static func makeClient(
+        for provider: Provider,
+        config: Config,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) throws -> any ModelClient {
+        switch provider {
+        case .anthropic:
+            return try makeClient(config: config, environment: environment)
+        case .gemini:
+            throw ProviderUnavailable(
+                provider: .gemini,
+                reason: "Gemini support isn't implemented yet. Use --provider anthropic or --provider skill."
+            )
+        case .skill:
+            throw ProviderUnavailable(
+                provider: .skill,
+                reason: "skill mode emits JSON for a host agent and has no model client."
+            )
+        }
+    }
 }

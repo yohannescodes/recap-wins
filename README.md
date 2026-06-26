@@ -23,8 +23,12 @@ change report into prose via the Anthropic API: `rw new` (list new features) and
 `rw notes` for every target (`--pr`, `--asc-reviewer`, `--what-new`,
 `--asc-update`, `--gp-update`), in the product's voice, within store char caps.
 Caps come from a TTL-cached `limits.json` manifest with a baked-in offline
-fallback; `--refresh-limits` forces a fetch and `--limit` only tightens. The core
-stays offline — only these commands reach the network. `market` is Phase 2.
+fallback; `--refresh-limits` forces a fetch and `--limit` only tightens.
+
+**Provider switching** (from Phase 3, pulled forward). The prose commands run
+through a pluggable provider — `anthropic` (API), `skill` (key-free, emits JSON
+for a host agent), or `gemini` (reserved). Pick with `--provider` or the
+`provider` config key. Skill mode is the no-key path. `market` is Phase 2.
 
 ## Install
 
@@ -60,12 +64,29 @@ rw new                     # semantic: list the new features (needs an API key)
 rw notes --pr              # semantic: a PR description
 ```
 
-### Semantic commands (Phase 1)
+### Semantic commands (`new`, `notes`)
 
-`rw new` and `rw notes` call the Anthropic API. Provide a key via the
-`ANTHROPIC_API_KEY` environment variable (preferred) or `api_key` in
-`testthese.toml` — the env var wins. Copy [`testthese.toml.example`](testthese.toml.example)
-to `testthese.toml` to configure the base ref, model, and product profiles.
+These turn the change report into prose. They run through a **provider**, chosen
+by `provider` in `testthese.toml` or the `--provider` flag (flag wins):
+
+| Provider | Needs a key? | What it does |
+|---|---|---|
+| `anthropic` *(default)* | yes | Calls the Anthropic API directly and prints the prose |
+| `skill` | **no** | Emits a JSON envelope for a host agent (Claude Code, Cowork) to complete — the host agent is the model |
+| `gemini` | — | Reserved; not yet implemented |
+
+**Skill mode — no API key, no network.** `rw` does the deterministic work and
+hands the agent a prompt + the grounded change report to write the prose. If you
+already pay for Claude through a plan, this routes the model work through your
+agent session at no extra cost:
+
+```sh
+rw new   --provider skill            # emits a JSON envelope for the host agent
+rw notes --asc-update --product ledgerly --provider skill
+```
+
+**API mode.** Provide a key via the `ANTHROPIC_API_KEY` environment variable
+(preferred) or `api_key` in `testthese.toml` — the env var wins.
 
 ```sh
 export ANTHROPIC_API_KEY=sk-ant-...
@@ -74,6 +95,9 @@ rw notes --pr                              # technical PR description, uncapped
 rw notes --asc-update --product ledgerly   # App Store "What's New", in voice, ≤4000
 rw notes --gp-update  --product ledgerly --limit 300   # tighter Play note
 ```
+
+Copy [`testthese.toml.example`](testthese.toml.example) to `testthese.toml` to
+configure the base ref, model, provider, and product profiles.
 
 `rw notes` takes exactly one target. The user-facing store targets
 (`--asc-update`, `--gp-update`, `--what-new`) pull voice and a soft length aim
@@ -101,11 +125,12 @@ Two cleanly separated layers (PRD §5):
   classifies commits, and builds the `change_report.json`. No model, no network.
   This same core will back the standalone CLI *and* (Phase 3) a universal agent
   skill.
-- **`SemanticKit`** — the semantic layer (Phase 1). Consumes a `ChangeReport`
-  and calls the Anthropic API (hand-rolled `URLSession`, zero deps) to write
-  prose. Depends on `RecapCore`, never the reverse — the core stays offline. The
-  model call sits behind a `ModelClient` protocol so tests inject a mock and CI
-  needs no key.
+- **`SemanticKit`** — the semantic layer. Consumes a `ChangeReport` and renders
+  prose through a pluggable **provider**: `anthropic` (hand-rolled `URLSession`,
+  zero deps), `skill` (emits a JSON envelope for a host agent — no key, no
+  network), or `gemini` (reserved). Depends on `RecapCore`, never the reverse —
+  the core stays offline. The API call sits behind a `ModelClient` protocol so
+  tests inject a mock and CI needs no key.
 - **`rw`** — the command-line front end over `RecapCore` + `SemanticKit`.
 
 ## Development
