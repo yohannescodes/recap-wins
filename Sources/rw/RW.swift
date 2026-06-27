@@ -1,6 +1,7 @@
 import ArgumentParser
 import Foundation
 import RecapCore
+import SemanticKit
 
 /// Root command. With no subcommand, `rw` itself prints the vitals dashboard
 /// (PRD §6/§7). Vitals lives on the root rather than as a `defaultSubcommand`
@@ -23,6 +24,11 @@ struct RW: ParsableCommand {
         let report = try options.buildReport()
         if options.json {
             try emitJSON(report)
+        } else if options.wantsHTML {
+            try writeHTMLReport(
+                HTMLRender.vitals(report),
+                command: "vitals", range: report.range, repoPath: options.repo,
+                outPath: options.htmlOut, open: options.open)
         } else {
             print(Render.vitals(report))
         }
@@ -42,6 +48,11 @@ struct Many: ParsableCommand {
         let report = try options.buildReport()
         if options.json {
             try emitJSON(report)
+        } else if options.wantsHTML {
+            try writeHTMLReport(
+                HTMLRender.many(report),
+                command: "many", range: report.range, repoPath: options.repo,
+                outPath: options.htmlOut, open: options.open)
         } else {
             print(Render.many(report))
         }
@@ -60,6 +71,11 @@ struct Blame: ParsableCommand {
         let report = try options.buildReport()
         if options.json {
             try emitJSON(report)
+        } else if options.wantsHTML {
+            try writeHTMLReport(
+                HTMLRender.blame(report),
+                command: "blame", range: report.range, repoPath: options.repo,
+                outPath: options.htmlOut, open: options.open)
         } else {
             print(Render.blame(report))
         }
@@ -78,6 +94,11 @@ struct Branch: ParsableCommand {
         let report = try options.buildReport()
         if options.json {
             try emitJSON(report)
+        } else if options.wantsHTML {
+            try writeHTMLReport(
+                HTMLRender.branch(report),
+                command: "branch", range: report.range, repoPath: options.repo,
+                outPath: options.htmlOut, open: options.open)
         } else {
             print(Render.branch(report))
         }

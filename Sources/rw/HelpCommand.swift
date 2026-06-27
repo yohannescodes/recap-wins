@@ -148,7 +148,10 @@ enum HelpText {
 
         \(h("GLOBAL"))
           \(cmd("--repo <path>"))  \(cmd("--base <ref>"))  \(cmd("--head <ref>"))  \(cmd("--json"))
+          \(cmd("--html"))         render to a self-contained, offline HTML file
+          \(cmd("--html-out <p>")) override the output path  \(cmd("--open")) open it after writing
           \(dim("--json emits the raw change_report.json on any command — offline, no key."))
+          \(dim("--html composes with every command; no extra model calls beyond the run."))
         """
     }
 
@@ -180,6 +183,12 @@ enum HelpText {
         \(h("PLATFORM"))
           --what-new keys off the product's platform: generous on iOS (TestFlight),
           tight on Android (Play, 500/lang). Set platform in the product profile.
+
+        \(h("--html"))
+          \(cmd("rw notes --asc-update --product ledgerly --html"))
+          Renders the note in context with a live char meter against the cap, plus
+          a copy button. Writes to \(dim(".rw/notes-<target>-<range>.html")) by default;
+          \(cmd("--html-out <path>")) overrides, \(cmd("--open")) launches it in your browser.
         """
     }
 
@@ -207,6 +216,12 @@ enum HelpText {
           market is the broad ANNOUNCEMENT pack (post, tweet, blurbs). The store
           release-note block lives in \(cmd("rw notes --asc-update")) / \(cmd("--gp-update")).
           Caps are hard ceilings — market warns on overflow, never truncates.
+
+        \(h("--html"))
+          \(cmd("rw market --product ledgerly --html --open"))
+          Renders the pack as a store-listing proof sheet: each piece in its own
+          block with a live cap meter and a copy button — what you'd eyeball
+          before pasting into App Store Connect / Play Console.
         """
     }
 
