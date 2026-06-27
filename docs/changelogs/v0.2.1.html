@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v0.2.1 — rw</title>
+<style>
+html { background: #ffffff; color: #000000; }
+body { margin: 0; }
+main {
+  max-width: 38em;
+  margin: 2.5em auto;
+  padding: 0 1.25em;
+  font-family: Verdana, Geneva, sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+}
+h1 { font-size: 1.4em; margin: 0 0 0.1em 0; }
+h2 { font-size: 1.05em; margin: 1.6em 0 0.4em 0; }
+p { margin: 0.6em 0; }
+ul { margin: 0.5em 0 0.5em 1.2em; padding: 0; }
+li { margin: 0.15em 0; }
+a { color: #00008b; text-decoration: underline; }
+.subtitle { margin-top: 0; }
+.muted { color: #6b6b6b; }
+.meter { margin-bottom: 0.2em; font-size: 0.9em; }
+.meter.near { color: #a06a00; }
+.meter.over { color: #a00000; }
+.bar { height: 2px; background: #eeeeee; margin: 0 0 0.8em 0; overflow: hidden; }
+.bar .fill { height: 100%; background: #cccccc; }
+.meter.near + .bar .fill { background: #d6a000; }
+.meter.over + .bar .fill { background: #c00000; }
+.copyable { position: relative; margin: 0.4em 0 1.4em 0; }
+.copyable pre {
+  margin: 0;
+  padding: 0.6em 0.8em;
+  background: #fafafa;
+  border-left: 2px solid #eeeeee;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: Verdana, Geneva, sans-serif;
+  font-size: 0.95em;
+}
+.copyable textarea {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+button.copy {
+  float: right;
+  margin: 0 0 0.4em 0.6em;
+  font: inherit;
+  font-size: 0.85em;
+  background: #ffffff;
+  color: #00008b;
+  border: 1px solid #d0d0d0;
+  padding: 0.15em 0.55em;
+  cursor: pointer;
+}
+button.copy:hover { border-color: #00008b; }
+button.copy.copied { color: #2a7a2a; border-color: #2a7a2a; }
+footer { margin-top: 2.5em; font-size: 0.85em; }
+.footnote { font-size: 0.85em; margin-top: 2em; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.95em; }
+
+/* --- align page (rw align --html) --- */
+body.align main { max-width: 64em; }
+.disclaimer {
+  background: #fff8e6; border-left: 3px solid #d6a000;
+  padding: 0.6em 0.9em; margin: 1em 0 1.2em 0; font-size: 0.95em;
+}
+.chips { margin: 0.6em 0 0.8em 0; }
+.chip {
+  display: inline-block; margin: 0 0.3em 0.3em 0;
+  padding: 0.2em 0.55em; font: inherit; font-size: 0.85em;
+  background: #ffffff; color: #000000;
+  border: 1px solid #d0d0d0; border-radius: 2px; cursor: pointer;
+}
+.chip:hover { border-color: #00008b; }
+.chip .count {
+  margin-left: 0.4em; padding: 0 0.35em; border-radius: 2px;
+  background: #f0f0f0; color: #6b6b6b; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+}
+/* Each filter-X body class hides rows not matching the active status.
+   The chip click toggles the body class. "all" shows everything. */
+body.filter-paired     .row[data-status]:not([data-status="paired"])    { display: none; }
+body.filter-equivalent .row[data-status]:not([data-status="equivalent"]){ display: none; }
+body.filter-gap_on_a   .row[data-status]:not([data-status="gap_on_a"])  { display: none; }
+body.filter-gap_on_b   .row[data-status]:not([data-status="gap_on_b"])  { display: none; }
+body.filter-ambiguous  .row[data-status]:not([data-status="ambiguous"]) { display: none; }
+/* Active chip styling tracks the body class via these matching selectors. */
+body.filter-all        .chip[data-filter="all"]        { background: #00008b; color: #ffffff; border-color: #00008b; }
+body.filter-paired     .chip[data-filter="paired"]     { background: #1a6e38; color: #ffffff; border-color: #1a6e38; }
+body.filter-equivalent .chip[data-filter="equivalent"] { background: #00008b; color: #ffffff; border-color: #00008b; }
+body.filter-gap_on_a   .chip[data-filter="gap_on_a"]   { background: #a00000; color: #ffffff; border-color: #a00000; }
+body.filter-gap_on_b   .chip[data-filter="gap_on_b"]   { background: #a00000; color: #ffffff; border-color: #a00000; }
+body.filter-ambiguous  .chip[data-filter="ambiguous"]  { background: #a06a00; color: #ffffff; border-color: #a06a00; }
+
+.matrix {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 1.4em; margin: 1em 0 1.6em 0;
+}
+@media (max-width: 48em) { .matrix { grid-template-columns: 1fr; } }
+.matrix .col h2 { margin-top: 0; }
+.row {
+  padding: 0.4em 0; border-bottom: 1px solid #f0f0f0;
+  font-size: 0.92em; line-height: 1.45;
+}
+.row.missing .text { color: #b0b0b0; font-style: italic; }
+.row .text { margin-left: 0.35em; }
+.row .note { margin-left: 0.35em; font-size: 0.9em; }
+.badge {
+  display: inline-block; padding: 0.05em 0.4em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72em; text-transform: uppercase; border-radius: 2px;
+  vertical-align: 1px;
+}
+.badge-paired     { background: #e6f4ea; color: #1a6e38; }
+.badge-equivalent { background: #e6e9ff; color: #00008b; }
+.badge-gap        { background: #ffe6e6; color: #a00000; }
+.badge-ambiguous  { background: #fff8e6; color: #a06a00; }
+.conf {
+  display: inline-block; margin-left: 0.3em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.82em; color: #6b6b6b;
+}
+.conf-high { color: #1a6e38; }
+.conf-low  { color: #a06a00; }
+h3 { font-size: 0.98em; margin: 1.2em 0 0.3em 0; }
+</style>
+</head>
+<body>
+<main>
+<h1>v0.2.1</h1>
+<p class="subtitle muted">Changelog · previous…v0.2.1</p>
+<h2>Added</h2>
+<ul>
+<li><strong><code>rw align</code></strong> — compare two native ports of the same product (e.g. iOS in Swift and Android in Kotlin), with no shared git history, and surface parity gaps. Builds a feature ledger for each side, runs a semantic matcher that classifies each pairing as <code>paired</code> / <code>equivalent</code> / <code>gap_on_a</code> / <code>gap_on_b</code> / <code>ambiguous</code> with a confidence score, drafts tracker-agnostic issues for confirmed gaps, and (with <code>--matrix</code>) renders a filterable HTML parity matrix you can open in your browser. Ships with a built-in Apple↔Google equivalence table (Apple Pay/Google Pay, StoreKit/Play Billing, Keychain/Keystore, HealthKit/Health Connect, APNs/FCM, iCloud/Drive, WidgetKit/Glance, SwiftUI/Compose, Core Data/Room, Combine/Flow, TestFlight/Play Internal Testing, Sign in with Apple/Google Sign-In). Per-product <code>[[product.parity.equivalent]]</code> entries extend the table; <code>--confirm &lt;match-id&gt;</code> writes back to it. Configure a port pair in <code>testthese.toml</code> (<code>[product.ports]</code>) and run <code>rw align --product &lt;id&gt;</code> — or pass <code>--with &lt;path&gt;</code> / <code>--a &lt;path&gt; --b &lt;path&gt;</code> for ad-hoc runs.</li>
+<li><strong><code>rw align --matrix</code></strong> — the filterable HTML parity matrix (FRD §9.1). Two-column layout with status chips, confidence pills, filter chips at the top, drafted issues with copy buttons at the bottom. Same PG-blog aesthetic as the rest of <code>rw</code>&#39;s <code>--html</code> surfaces. <code>--matrix-out &lt;path&gt;</code> overrides the default; <code>--open-matrix</code> launches the file in your default browser. <code>--page</code> is an alias for <code>--matrix</code>.</li>
+<li><strong><code>rw align --issues &lt;format&gt;</code></strong> — tracker-flavored wrappers around the canonical markdown issue body. <code>markdown</code> (default, the source), <code>linear</code> (h1 title + <code>Labels:</code> line), <code>github</code> (<code>Title:</code>/<code>Labels:</code> prefixes that pipe cleanly into <code>gh issue create</code>), <code>jira</code> (wiki markup: <code>h2.</code>, <code>*bold*</code>, <code>{{code}}</code>, <code>*</code> bullets). Pure formatters — no API calls, no posting.</li>
+<li><strong><code>rw align --confirm &lt;match-id&gt;</code></strong> — promote an <code>equivalent</code> or <code>ambiguous</code> match into the curated parity map by appending a <code>[[product.parity.equivalent]]</code> block to <code>testthese.toml</code>. Idempotent on the <code>(a, b)</code> lowercase tuple. The matcher stops re-flagging confirmed pairs on the next run.</li>
+<li><strong><code>rw align --ledger-only</code></strong> — skip the semantic matcher and emit only the per-port ledgers. Deterministic, offline, key-free — useful when you want to see what each side claims without spending a model call.</li>
+<li><strong>Built-in Apple↔Google equivalence table</strong> with 12 canonical pairs. Merges case-insensitively with per-product curated entries; the product&#39;s note wins on duplicates.</li>
+<li><strong><code>rw align --provider skill</code></strong> — key-free path. <code>rw</code> builds both ledgers, prints the matcher envelope; your host agent (Claude Code, Cowork) returns the match results.</li>
+<li><strong><code>.github/workflows/notify-novarch.yml</code></strong> — fires a <code>repository_dispatch</code> event at <code>yohannescodes/novarch.lol</code> on every <code>v*</code> tag push so the site can sync release links automatically. Set <code>NOVARCH_DISPATCH_TOKEN</code> in repo secrets to activate; the workflow fails fast with a clear error if the secret isn&#39;t set.</li>
+</ul>
+<h2>Changed</h2>
+<ul>
+<li><strong>The release flow now also includes the workflow notification</strong> — once <code>NOVARCH_DISPATCH_TOKEN</code> is configured, tag pushes automatically trigger the site sync. Manual <code>workflow_dispatch</code> lets you re-fire for an existing tag without re-tagging.</li>
+<li><strong><code>rw align</code>&#39;s HTML and JSON flag names use subcommand-unique spellings</strong> to avoid being shadowed by the root command&#39;s <code>--html</code> / <code>--json</code>: <code>--matrix</code> (with <code>--page</code> alias) and <code>--emit-json</code> respectively. <code>rw help align</code> and <code>GUIDE.md</code> document the why.</li>
+</ul>
+<h2>Fixed</h2>
+<ul>
+<li>Skill mode for <code>rw align</code> now raises a clean validation error when combined with <code>--matrix</code> or <code>--confirm</code> (<code>rw</code> doesn&#39;t see the agent&#39;s match results in skill mode, so neither flag can do meaningful work). Previously these would have silently produced empty/incorrect output; now the failure mode is loud and immediate.</li>
+</ul>
+<p class="muted footnote">Generated by <a href="https://novarch.lol/recap-wins">recap-wins</a> via <code>rw notes --changelog</code>.</p>
+<footer class="muted">Generated by <a href="https://novarch.lol/recap-wins">recap-wins</a>.</footer>
+</main>
+</body>
+</html>

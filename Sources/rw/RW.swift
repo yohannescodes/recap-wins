@@ -14,7 +14,7 @@ struct RW: ParsableCommand {
         abstract: "recap-wins — see what your branch introduced, offline and instant.",
         discussion: "Run `rw help` for the full guide, or `rw help <topic>` "
             + "(concepts, commands, notes, providers, skill, config).",
-        version: "0.2.0",
+        version: "0.2.1",
         subcommands: [New.self, Notes.self, Market.self, Many.self, Blame.self, Branch.self, Align.self, Help.self]
     )
 

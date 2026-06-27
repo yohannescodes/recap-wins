@@ -252,7 +252,7 @@ Roadmap, in order:
    this week"). Held back as the paid open-core layer.
 
 `rw align` (compare two native ports of the same product and surface parity
-gaps) **landed in v0.3.0** — feature-ledger extraction, semantic matcher with
+gaps) **landed in v0.2.1** — feature-ledger extraction, semantic matcher with
 a built-in Apple↔Google equivalence table, drafted issues, the
 filterable HTML parity matrix, `--issues` tracker-flavored formatters, and
 the `--confirm` loop that promotes confirmed equivalences into the

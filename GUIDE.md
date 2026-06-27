@@ -67,7 +67,7 @@ Verify:
 
 ```sh
 which rw      # → the path you linked
-rw --version  # → 0.2.0
+rw --version  # → 0.2.1
 ```
 
 > All three point at `.build/release/rw` inside the repo. Rebuilding keeps them
