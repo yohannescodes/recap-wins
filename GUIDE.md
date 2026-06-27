@@ -194,8 +194,11 @@ rw notes --changelog --version-label v0.2.0 --base v0.1.1 --head HEAD
 
 **`--changelog` is HTML-only.** It always renders a self-contained release
 page, defaults its output under `docs/changelogs/v<version>.html`, and is the
-canonical "what changed" artifact you commit per release. See [RELEASING.md](RELEASING.md)
-for the workflow. Pass `--version-label v<version>` for the page title.
+canonical "what changed" artifact you commit per release. Use
+`scripts/render-changelog.sh <version>` to write the HTML page **and** prepend
+a matching section to the root [`CHANGELOG.md`](CHANGELOG.md) in one step —
+one prose source, two artifacts that stay in sync. See [RELEASING.md](RELEASING.md)
+for the full workflow. Pass `--version-label v<version>` for the page title.
 
 **Product voice.** The user-facing store targets read voice + a soft length aim
 from the product profile, so pass `--product <id>` (configure profiles in
@@ -418,6 +421,14 @@ rw notes --asc-update --product ledgerly --html --open
 ```sh
 rw notes --changelog --version-label v0.2.0 --base v0.1.1 --head HEAD
 # → docs/changelogs/v0.2.0.html
+```
+
+**Or write the HTML page AND prepend to CHANGELOG.md in one step:**
+```sh
+# Skill mode: you/your agent author the prose, the script handles both outputs.
+echo "$prose" | scripts/render-changelog.sh 0.2.0
+# → docs/changelogs/v0.2.0.html (rendered)
+# → CHANGELOG.md (new section prepended at the top)
 ```
 
 ---
