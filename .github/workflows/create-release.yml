@@ -1,0 +1,122 @@
+# Auto-create a GitHub Release for every v* tag push.
+#
+# Pulls the matching version's section out of CHANGELOG.md (everything between
+# `## [v<version>](...)` and the next `## [`), appends a link to the rendered
+# `docs/changelogs/v<version>.html` page, and runs `gh release create`.
+#
+# Closes the release loop: tag push -> GitHub Release auto-created -> novarch.lol
+# auto-PR'd via notify-novarch.yml -> formula PR is still the only human step.
+#
+# Manual workflow_dispatch lets you re-fire for an existing tag if the auto
+# run fails or needs a re-do.
+
+name: Create GitHub Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Tag to create a Release for (e.g. v0.2.1)"
+        required: true
+        type: string
+
+permissions:
+  # The default GITHUB_TOKEN can create Releases when contents: write is set.
+  # No PAT needed — Releases aren't PRs, the org-level "can create PRs" toggle
+  # doesn't apply.
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve version
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            VERSION="${GITHUB_REF##*/}"
+          else
+            VERSION="${{ inputs.version }}"
+          fi
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            echo "::error::version '$VERSION' isn't a vX.Y.Z tag"; exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout repository at tag
+        uses: actions/checkout@v4
+        with:
+          # Check out the tag itself, not main — the CHANGELOG.md and HTML
+          # page that ship with this release are what matter, not whatever's
+          # currently on main (which may already have v0.2.2 prep on it).
+          ref: ${{ steps.vars.outputs.version }}
+
+      - name: Extract release notes from CHANGELOG.md
+        id: notes
+        env:
+          VERSION: ${{ steps.vars.outputs.version }}
+        run: |
+          # Pull the section for this version out of CHANGELOG.md. The file's
+          # version headers look like:
+          #   ## [v0.2.1](docs/changelogs/v0.2.1.html) - 2026-06-27
+          # so we anchor on `^## \[v0.2.1\]` and stop at the next `^## \[`.
+          if [ ! -f CHANGELOG.md ]; then
+            echo "::warning::CHANGELOG.md missing; using default body"
+            BODY="Release $VERSION. See [docs/changelogs/${VERSION}.html](https://github.com/${GITHUB_REPOSITORY}/blob/main/docs/changelogs/${VERSION}.html) for the rendered changelog."
+          else
+            BODY=$(awk -v v="$VERSION" '
+              # Start emitting when we hit the version header.
+              !started && $0 ~ "^## \\["v"\\]" { started=1; next }
+              # Stop at the next version header.
+              started && /^## \[/ { exit }
+              # Skip the trailing "---" separator and blank lines around it.
+              started { print }
+            ' CHANGELOG.md)
+            if [ -z "$(echo "$BODY" | tr -d '[:space:]-')" ]; then
+              echo "::warning::no CHANGELOG.md section for $VERSION; using default body"
+              BODY="Release $VERSION. See [docs/changelogs/${VERSION}.html](https://github.com/${GITHUB_REPOSITORY}/blob/main/docs/changelogs/${VERSION}.html) for the rendered changelog."
+            fi
+          fi
+
+          # Always append a link to the rendered HTML page if it exists in this
+          # tag's tree. Lets readers jump from the GitHub Release to the
+          # PG-blog-styled page recap-wins generates of itself.
+          HTML_PATH="docs/changelogs/${VERSION}.html"
+          if [ -f "$HTML_PATH" ]; then
+            BODY="$BODY
+
+          ---
+          📄 [Rendered changelog page](https://github.com/${GITHUB_REPOSITORY}/blob/main/${HTML_PATH}) — the PG-blog-styled HTML page \`rw notes --changelog\` produced for this release."
+          fi
+
+          # Hand the body to the next step via a heredoc-safe outputs file.
+          {
+            echo "body<<RELEASE_BODY_EOF"
+            echo "$BODY"
+            echo "RELEASE_BODY_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create or update the GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.vars.outputs.version }}
+          BODY: ${{ steps.notes.outputs.body }}
+        run: |
+          # Idempotent: if a Release already exists for this tag (e.g. you
+          # ran the workflow manually after an earlier failure), `edit` it
+          # in place rather than crashing.
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "Release $VERSION exists — updating notes."
+            gh release edit "$VERSION" \
+              --title "$VERSION" \
+              --notes "$BODY"
+          else
+            echo "Creating Release $VERSION."
+            gh release create "$VERSION" \
+              --title "$VERSION" \
+              --notes "$BODY" \
+              --verify-tag
+          fi

@@ -112,6 +112,32 @@ The script:
 
 **Copy those two lines** — you need them for PR 2.
 
+## What fires automatically on the tag push
+
+Two GitHub Actions workflows wake up the moment the `v*` tag lands on the
+remote, so the release artifacts and downstream sync happen without you:
+
+- **`.github/workflows/create-release.yml`** (`Create GitHub Release`) —
+  extracts the matching section from `CHANGELOG.md`, appends a link to
+  `docs/changelogs/v<version>.html`, and runs `gh release create v<version>`.
+  Idempotent: if the Release already exists (e.g. you re-fired manually),
+  it `edit`s in place rather than failing.
+- **`.github/workflows/notify-novarch.yml`** (`Notify novarch.lol of new
+  release`) — fires a `repository_dispatch` event at the novarch.lol repo,
+  whose listener opens a PR with the mechanical site updates (version pill,
+  latest-release link, mirrored changelog page).
+
+Both workflows have a `workflow_dispatch` input you can fire from the
+Actions tab if a run fails or you want to backfill an older tag — pass the
+tag (e.g. `v0.2.1`) as the input.
+
+For `notify-novarch.yml` you need `NOVARCH_DISPATCH_TOKEN` in repo secrets
+(a fine-scoped PAT or GitHub App installation token with `repo` write
+access to `yohannescodes/novarch.lol`). The novarch.lol repo also needs
+**Settings → Actions → General → Workflow permissions** set to "Read and
+write" with PR creation allowed, or its sync workflow can't open the PR.
+Set once; both stay in effect.
+
 ## PR 2 — Homebrew formula
 
 1. From `main` (now with the tag), open a second branch:
