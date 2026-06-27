@@ -148,12 +148,66 @@ rw --json             # the same data as raw change_report.json
 | `rw new` | list the new user-facing features | semantic |
 | `rw notes <target>` | write a review/release note | semantic |
 | `rw market --product <id>` | a marketing content pack in the product's voice | semantic |
+| `rw align --product <id>` | cross-port parity (slice 1 preview — see "rw align" below) | offline (slice 1) |
 | `rw help [topic]` | the built-in guide | — |
 
 Global flags on every command: `--repo`, `--base`, `--head`, `--json` (emit the
 raw `change_report.json` instead of the formatted view — works offline on any
 command, including the semantic ones), and `--html` (render the same view to a
 single self-contained, offline HTML file — see §6).
+
+### `rw align` (slice 1 preview)
+
+`rw align` compares two native ports of the same product (e.g. Ledgerly iOS
+in Swift and Ledgerly Android in Kotlin) and surfaces parity gaps. Unlike
+every other command, it reads **two repos with no shared git history** — so
+there's nothing for `git diff` to compare. Instead it builds a
+**feature ledger** for each side from conventional-commit feats and the
+inferred-feature heuristic, then (in slice 2) hands both ledgers to the
+semantic matcher.
+
+Slice 1 (this release) ships the deterministic half: it builds both ledgers
+and emits the structured `AlignReport` JSON. The semantic match
+(paired / equivalent / gap / ambiguous) and the issue-draft generation
+arrive in slice 2; the HTML parity matrix and confirmation loop in slice 3.
+
+```sh
+# Three input modes:
+rw align --product ledgerly                    # uses [product.ports] from config
+rw align --with ../ledgerly-android            # current repo is side A
+rw align --a ./ios --b ./android               # both sides explicit
+
+rw align --product ledgerly --emit-json        # the AlignReport, raw
+rw align --product ledgerly --since v1.0       # baseline override
+```
+
+> **Why `--emit-json` and not `--json`?** The root `rw` command already has
+> a `--json` flag (for the vitals report); when subcommand and parent share
+> a long flag name, swift-argument-parser resolves the parent's first.
+> `--emit-json` sidesteps the collision and reads clearly as "emit the
+> AlignReport JSON".
+
+Configure a port pair in `testthese.toml` (see `testthese.toml.example`):
+
+```toml
+[[product]]
+id = "ledgerly"
+name = "Ledgerly"
+
+[product.ports]
+a = { name = "ios", path = "../ledgerly-ios", base = "main" }
+b = { name = "android", path = "../ledgerly-android", base = "main" }
+since = "v1.0"            # port-start tag; earlier features are ignored
+
+[[product.parity.equivalent]]
+a = "Apple Pay checkout"
+b = "Google Pay checkout"
+note = "platform-native payment"
+```
+
+The disclaimer that ships with every `AlignReport` is non-optional: parity
+is always presented as **candidates to confirm, not authoritative parity**.
+A parity tool that's confidently wrong makes you relax when you shouldn't.
 
 ---
 

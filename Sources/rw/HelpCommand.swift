@@ -11,7 +11,7 @@ struct Help: ParsableCommand {
         abstract: "Show the recap-wins guide. `rw help <topic>` drills into one area."
     )
 
-    @Argument(help: "Optional topic: commands, notes, market, providers, skill, config, concepts.")
+    @Argument(help: "Optional topic: commands, notes, market, align, providers, skill, config, concepts.")
     var topic: String?
 
     func run() {
@@ -27,6 +27,8 @@ struct Help: ParsableCommand {
             page = HelpText.notes
         case "market", "marketing":
             page = HelpText.market
+        case "align", "parity", "ports":
+            page = HelpText.align
         case "providers", "provider", "modes", "mode":
             page = HelpText.providers
         case "skill", "skills", "agent":
@@ -72,6 +74,7 @@ enum HelpText {
           \(cmd("rw help commands"))   every command, with examples
           \(cmd("rw help notes"))      the notes targets and char caps
           \(cmd("rw help market"))     the marketing content pack
+          \(cmd("rw help align"))      cross-port parity \(dim("(slice 1 preview)"))
           \(cmd("rw help providers"))  anthropic vs skill vs gemini
           \(cmd("rw help skill"))      use rw inside an agent with no API key
           \(cmd("rw help config"))     testthese.toml: base, model, products
@@ -145,6 +148,12 @@ enum HelpText {
         \(h("rw market --product <id>")) \(dim("— marketing content pack")) \(dim("· semantic"))
           A pack of announcement pieces in the product's voice. See \(cmd("rw help market")).
           \(cmd("rw market --product ledgerly"))   \(cmd("rw market --product ledgerly --pieces tweet,post"))
+
+        \(h("rw align --product <id>")) \(dim("— cross-port parity")) \(dim("· slice 1 preview · offline"))
+          Compares two native ports of the same product. Slice 1 ships the
+          deterministic ledger half; the matcher arrives in slice 2. See
+          \(cmd("rw help align")) for the full story.
+          \(cmd("rw align --product ledgerly --emit-json"))
 
         \(h("GLOBAL"))
           \(cmd("--repo <path>"))  \(cmd("--base <ref>"))  \(cmd("--head <ref>"))  \(cmd("--json"))
@@ -230,6 +239,56 @@ enum HelpText {
           Renders the pack as a store-listing proof sheet: each piece in its own
           block with a live cap meter and a copy button — what you'd eyeball
           before pasting into App Store Connect / Play Console.
+        """
+    }
+
+    static var align: String {
+        """
+        \(h("rw align — cross-port parity")) \(dim("(slice 1 preview)"))
+
+        \(cmd("rw align")) compares two native ports of the same product
+        (e.g. Ledgerly iOS in Swift and Ledgerly Android in Kotlin) and
+        surfaces parity gaps. Unlike every other rw command, it reads TWO
+        repos with no shared git history — there's nothing for git diff to
+        compare. It builds a FEATURE LEDGER for each side instead, then
+        hands both ledgers to the semantic matcher.
+
+        \(h("CURRENT STATUS"))
+          \(dim("slice 1"))  ledger extraction (this release) — both sides build,
+                     emit AlignReport JSON. No match yet.
+          \(dim("slice 2"))  semantic matcher (paired / equivalent / gap /
+                     ambiguous) + tracker-agnostic issue drafts.
+          \(dim("slice 3"))  HTML parity matrix view + confirmation loop.
+
+        \(h("USAGE"))
+          \(cmd("rw align --product ledgerly"))               configured port pair
+          \(cmd("rw align --with ../ledgerly-android"))       current repo is side A
+          \(cmd("rw align --a ./ios --b ./android"))          both sides explicit
+          \(cmd("rw align --product ledgerly --emit-json"))   the raw AlignReport
+
+        \(h("WHY --emit-json AND NOT --json"))
+          The root \(cmd("rw")) command already has a --json flag for the vitals
+          report. When subcommand and parent share a long flag name,
+          argument-parser resolves the parent's first; --emit-json avoids the
+          collision and reads cleanly as \"emit the AlignReport JSON\".
+
+        \(h("CONFIG")) \(dim("(testthese.toml)"))
+          [[product]]
+          id = \"ledgerly\"
+
+          [product.ports]
+          a = { name = \"ios\",     path = \"../ledgerly-ios\",     base = \"main\" }
+          b = { name = \"android\", path = \"../ledgerly-android\", base = \"main\" }
+          since = \"v1.0\"
+
+          [[product.parity.equivalent]]
+          a = \"Apple Pay checkout\"
+          b = \"Google Pay checkout\"
+
+        \(h("THE DISCLAIMER IS NON-OPTIONAL"))
+          Every AlignReport ships with the framing that parity is candidates
+          to confirm, never authoritative. A parity tool that's confidently
+          wrong makes you relax when you shouldn't.
         """
     }
 
