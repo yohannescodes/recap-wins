@@ -1,0 +1,60 @@
+# Copy this file into the recap-wins repo at:
+#   .github/workflows/notify-novarch.yml
+#
+# It fires a repository_dispatch event at novarch.lol whenever a `v*` tag
+# is pushed. The novarch.lol sync workflow listens for that event and
+# opens a PR with the mechanical site updates.
+#
+# One-time setup in the recap-wins repo:
+#   1. Create a fine-scoped Personal Access Token (or GitHub App installation
+#      token) with `repo` write access to `yohannescodes/novarch.lol`.
+#   2. Add it as a repository secret named NOVARCH_DISPATCH_TOKEN.
+
+name: Notify novarch.lol of new release
+
+on:
+  push:
+    tags:
+      - "v*"
+  # Manual trigger lets you re-fire the dispatch for an existing tag
+  # without re-tagging — useful when the novarch.lol side fails and
+  # needs a clean retry.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Tag to notify about (e.g. v0.2.0)"
+        required: true
+        type: string
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve version
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            VERSION="${GITHUB_REF##*/}"
+          else
+            VERSION="${{ inputs.version }}"
+          fi
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            echo "::error::version '$VERSION' isn't a vX.Y.Z tag"; exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch to novarch.lol
+        env:
+          TOKEN: ${{ secrets.NOVARCH_DISPATCH_TOKEN }}
+          VERSION: ${{ steps.vars.outputs.version }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::error::NOVARCH_DISPATCH_TOKEN secret is not set"; exit 1
+          fi
+          curl --fail-with-body -sS -X POST \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/yohannescodes/novarch.lol/dispatches \
+            -d "{\"event_type\":\"recap-wins-release\",\"client_payload\":{\"version\":\"$VERSION\",\"ref\":\"$VERSION\"}}"
+          echo "Dispatched recap-wins-release for $VERSION"
