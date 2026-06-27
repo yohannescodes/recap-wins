@@ -74,7 +74,7 @@ enum HelpText {
           \(cmd("rw help commands"))   every command, with examples
           \(cmd("rw help notes"))      the notes targets and char caps
           \(cmd("rw help market"))     the marketing content pack
-          \(cmd("rw help align"))      cross-port parity \(dim("(preview)"))
+          \(cmd("rw help align"))      cross-port parity \(dim("(matcher + HTML matrix)"))
           \(cmd("rw help providers"))  anthropic vs skill vs gemini
           \(cmd("rw help skill"))      use rw inside an agent with no API key
           \(cmd("rw help config"))     testthese.toml: base, model, products
@@ -149,11 +149,11 @@ enum HelpText {
           A pack of announcement pieces in the product's voice. See \(cmd("rw help market")).
           \(cmd("rw market --product ledgerly"))   \(cmd("rw market --product ledgerly --pieces tweet,post"))
 
-        \(h("rw align --product <id>")) \(dim("— cross-port parity")) \(dim("· preview · semantic"))
-          Compares two native ports of the same product, with a semantic
-          matcher + tracker-agnostic issue drafts. HTML matrix arrives in
-          slice 3. See \(cmd("rw help align")) for the full story.
-          \(cmd("rw align --product ledgerly"))   \(cmd("rw align --product ledgerly --provider skill"))
+        \(h("rw align --product <id>")) \(dim("— cross-port parity")) \(dim("· semantic"))
+          Compares two native ports of the same product: semantic matcher,
+          drafted issues, filterable HTML matrix, --confirm loop into a
+          curated parity map. See \(cmd("rw help align")) for the full story.
+          \(cmd("rw align --product ledgerly"))   \(cmd("rw align --product ledgerly --matrix --open-matrix"))
 
         \(h("GLOBAL"))
           \(cmd("--repo <path>"))  \(cmd("--base <ref>"))  \(cmd("--head <ref>"))  \(cmd("--json"))
@@ -244,29 +244,43 @@ enum HelpText {
 
     static var align: String {
         """
-        \(h("rw align — cross-port parity")) \(dim("(preview — HTML matrix in slice 3)"))
+        \(h("rw align — cross-port parity"))
 
         \(cmd("rw align")) compares two native ports of the same product
         (e.g. Ledgerly iOS in Swift and Ledgerly Android in Kotlin) and
         surfaces parity gaps. Unlike every other rw command, it reads TWO
         repos with no shared git history — there's nothing for git diff to
-        compare. It builds a FEATURE LEDGER for each side, then runs a
-        semantic matcher that classifies each pairing and drafts
-        tracker-agnostic issues for confirmed gaps.
-
-        \(h("CURRENT STATUS"))
-          \(dim("slice 1 ✓"))  per-port feature-ledger extraction (deterministic).
-          \(dim("slice 2 ✓"))  semantic matcher + built-in Apple↔Google equivalence
-                     table + tracker-agnostic issue drafts. \(dim("(this release)"))
-          \(dim("slice 3"))    HTML parity matrix + curated-map confirmation loop.
+        compare. It builds a FEATURE LEDGER for each side, runs a semantic
+        matcher that classifies each pairing, drafts tracker-agnostic issues
+        for confirmed gaps, and (optionally) renders the whole thing as a
+        filterable HTML parity matrix.
 
         \(h("USAGE"))
           \(cmd("rw align --product ledgerly"))                configured port pair
           \(cmd("rw align --with ../ledgerly-android"))        current repo is side A
           \(cmd("rw align --a ./ios --b ./android"))           both sides explicit
-          \(cmd("rw align --product ledgerly --emit-json"))    raw AlignReport JSON
-          \(cmd("rw align --product ledgerly --ledger-only"))  skip the matcher; ledgers only
-          \(cmd("rw align --product ledgerly --provider skill")) key-free; agent matches
+
+        \(h("RENDERING"))
+          \(cmd("rw align --product ledgerly"))                       human-readable read (default)
+          \(cmd("rw align --product ledgerly --matrix --open-matrix")) filterable HTML in browser
+          \(cmd("rw align --product ledgerly --emit-json"))           raw AlignReport JSON
+          \(cmd("rw align --product ledgerly --ledger-only"))         skip matcher; ledgers only
+          \(cmd("rw align --product ledgerly --provider skill"))      key-free; agent matches
+
+        \(h("ISSUES (--issues)"))
+          The matcher's issue body is canonical Markdown. --issues layers on
+          tracker-flavored wrappers without any API call:
+          \(cmd("markdown"))  default — the canonical Markdown source
+          \(cmd("linear"))    h1 title + Labels: line
+          \(cmd("github"))    Title:/Labels: prefixes for `gh issue create` piping
+          \(cmd("jira"))      Jira wiki markup (h2., *bold*, {{code}}, * bullets)
+
+        \(h("CONFIRMING EQUIVALENCES (--confirm)"))
+          \(cmd("rw align --product ledgerly --confirm m3"))
+          Promote match m3 (an equivalent or ambiguous pair you agree with)
+          into the curated parity map. Appends [[product.parity.equivalent]]
+          to testthese.toml so it stops re-flagging on the next run.
+          Idempotent: re-confirming the same pair is a no-op.
 
         \(h("CLASSIFICATIONS"))
           \(cmd("paired"))      same capability on both sides; real parity.
@@ -286,11 +300,12 @@ enum HelpText {
           Internal Testing. Your \(cmd("[[product.parity.equivalent]]")) entries
           extend it per product.
 
-        \(h("WHY --emit-json AND NOT --json"))
-          The root \(cmd("rw")) command already has a --json flag for the vitals
-          report. When subcommand and parent share a long flag name,
-          argument-parser resolves the parent's first; --emit-json avoids the
-          collision and reads cleanly as \"emit the AlignReport JSON\".
+        \(h("WHY --matrix AND --emit-json INSTEAD OF --html / --json"))
+          The root \(cmd("rw")) command already has --html and --json flags (for
+          the vitals report). When subcommand and parent share a long flag
+          name, argument-parser resolves the parent's first; --matrix and
+          --emit-json sidestep the collision. \(cmd("--page")) is also accepted as
+          a --matrix alias.
 
         \(h("CONFIG")) \(dim("(testthese.toml)"))
           [[product]]

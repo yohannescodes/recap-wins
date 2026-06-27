@@ -14,6 +14,30 @@ HTML there are generated from the same prose at release time
 
 ---
 
+## [v0.2.1](docs/changelogs/v0.2.1.html) — 2026-06-27
+
+### Added
+
+- **`rw align`** — compare two native ports of the same product (e.g. iOS in Swift and Android in Kotlin), with no shared git history, and surface parity gaps. Builds a feature ledger for each side, runs a semantic matcher that classifies each pairing as `paired` / `equivalent` / `gap_on_a` / `gap_on_b` / `ambiguous` with a confidence score, drafts tracker-agnostic issues for confirmed gaps, and (with `--matrix`) renders a filterable HTML parity matrix you can open in your browser. Ships with a built-in Apple↔Google equivalence table (Apple Pay/Google Pay, StoreKit/Play Billing, Keychain/Keystore, HealthKit/Health Connect, APNs/FCM, iCloud/Drive, WidgetKit/Glance, SwiftUI/Compose, Core Data/Room, Combine/Flow, TestFlight/Play Internal Testing, Sign in with Apple/Google Sign-In). Per-product `[[product.parity.equivalent]]` entries extend the table; `--confirm <match-id>` writes back to it. Configure a port pair in `testthese.toml` (`[product.ports]`) and run `rw align --product <id>` — or pass `--with <path>` / `--a <path> --b <path>` for ad-hoc runs.
+- **`rw align --matrix`** — the filterable HTML parity matrix (FRD §9.1). Two-column layout with status chips, confidence pills, filter chips at the top, drafted issues with copy buttons at the bottom. Same PG-blog aesthetic as the rest of `rw`'s `--html` surfaces. `--matrix-out <path>` overrides the default; `--open-matrix` launches the file in your default browser. `--page` is an alias for `--matrix`.
+- **`rw align --issues <format>`** — tracker-flavored wrappers around the canonical markdown issue body. `markdown` (default, the source), `linear` (h1 title + `Labels:` line), `github` (`Title:`/`Labels:` prefixes that pipe cleanly into `gh issue create`), `jira` (wiki markup: `h2.`, `*bold*`, `{{code}}`, `*` bullets). Pure formatters — no API calls, no posting.
+- **`rw align --confirm <match-id>`** — promote an `equivalent` or `ambiguous` match into the curated parity map by appending a `[[product.parity.equivalent]]` block to `testthese.toml`. Idempotent on the `(a, b)` lowercase tuple. The matcher stops re-flagging confirmed pairs on the next run.
+- **`rw align --ledger-only`** — skip the semantic matcher and emit only the per-port ledgers. Deterministic, offline, key-free — useful when you want to see what each side claims without spending a model call.
+- **Built-in Apple↔Google equivalence table** with 12 canonical pairs. Merges case-insensitively with per-product curated entries; the product's note wins on duplicates.
+- **`rw align --provider skill`** — key-free path. `rw` builds both ledgers, prints the matcher envelope; your host agent (Claude Code, Cowork) returns the match results.
+- **`.github/workflows/notify-novarch.yml`** — fires a `repository_dispatch` event at `yohannescodes/novarch.lol` on every `v*` tag push so the site can sync release links automatically. Set `NOVARCH_DISPATCH_TOKEN` in repo secrets to activate; the workflow fails fast with a clear error if the secret isn't set.
+
+### Changed
+
+- **The release flow now also includes the workflow notification** — once `NOVARCH_DISPATCH_TOKEN` is configured, tag pushes automatically trigger the site sync. Manual `workflow_dispatch` lets you re-fire for an existing tag without re-tagging.
+- **`rw align`'s HTML and JSON flag names use subcommand-unique spellings** to avoid being shadowed by the root command's `--html` / `--json`: `--matrix` (with `--page` alias) and `--emit-json` respectively. `rw help align` and `GUIDE.md` document the why.
+
+### Fixed
+
+- Skill mode for `rw align` now raises a clean validation error when combined with `--matrix` or `--confirm` (`rw` doesn't see the agent's match results in skill mode, so neither flag can do meaningful work). Previously these would have silently produced empty/incorrect output; now the failure mode is loud and immediate.
+
+---
+
 ## [v0.2.0](docs/changelogs/v0.2.0.html) — 2026-06-27
 
 ### Added
