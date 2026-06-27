@@ -97,8 +97,9 @@ to diff against something else.
 <sub>* …or run it key-free through an agent — see [Skill mode](#agent-skill-no-api-key).</sub>
 
 Useful shared flags: `--base <ref>` / `--head <ref>` to pick what you're
-comparing, `--repo <path>` to run against another checkout, and `--json` to get
-the raw machine-readable report instead of the formatted view.
+comparing, `--repo <path>` to run against another checkout, `--json` for the raw
+machine-readable report, and `--html` to render the same view to a
+self-contained, offline HTML file (see [HTML output](#html-output)).
 
 New to `rw`? Run **`rw help`** for the in-terminal guide, or read the full
 [**User Guide**](docs/GUIDE.md).
@@ -175,6 +176,26 @@ the tool **warns** if output overflows, it never silently truncates, and
 
 The deterministic commands (and `--json` on any command) never need a key and
 never touch the network.
+
+## HTML output
+
+Every command takes `--html`, which renders the same report to a single
+self-contained, offline HTML file — no CDN, no server, no extra model calls
+beyond what the command already made. Useful when terminal scrollback is the
+wrong surface for what you produced:
+
+```sh
+rw --html                                    # vitals as an HTML page
+rw market --product ledgerly --html --open   # store-listing proof sheet, in your browser
+rw notes --asc-update --product ledgerly --html
+```
+
+The default output path is `.rw/<command>-<range>.html` under the repo (added
+to `.gitignore`); pass `--html-out <path>` to override, or `--open` to launch
+it in your default browser after writing. `rw market --html` lays out each
+piece with a live char meter against its store cap and a copy button — the
+preview you'd want before pasting into App Store Connect or Play Console.
+`--html` doesn't apply in skill mode (the host agent renders, not `rw`).
 
 ## Agent skill (no API key)
 

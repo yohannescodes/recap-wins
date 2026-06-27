@@ -54,6 +54,12 @@ struct Market: ParsableCommand {
 
         // Skill mode: emit one envelope per piece for the host agent.
         if selectedProvider == .skill {
+            if options.wantsHTML {
+                throw ValidationError(
+                    "--html doesn't apply in skill mode (the host agent renders, "
+                    + "not rw). Run without --provider skill, or render the agent's "
+                    + "output yourself.")
+            }
             let envelopes = SkillEnvelope.forMarket(
                 report, pieces: selectedPieces, product: profile, limits: config.marketLimits)
             print(try skillEnvelopesJSON(envelopes))
@@ -63,10 +69,22 @@ struct Market: ParsableCommand {
         let engine = try options.makeSemanticEngine(config: config, provider: selectedProvider)
         let pieces = selectedPieces
         let limits = config.marketLimits
+        let wantsHTML = options.wantsHTML
+        let htmlOut = options.htmlOut
+        let openInBrowser = options.open
+        let repoPath = options.repo
+        let range = report.range
         try runAsync {
             let results = try await engine.marketPack(
                 report, pieces: pieces, product: profile, limits: limits)
-            print(Render.marketPack(results, product: profile, limits: limits))
+            if wantsHTML {
+                let html = HTMLRender.market(results, product: profile, limits: limits, range: range)
+                try writeHTMLReport(
+                    html, command: "market", range: range, repoPath: repoPath,
+                    outPath: htmlOut, open: openInBrowser)
+            } else {
+                print(Render.marketPack(results, product: profile, limits: limits))
+            }
             // Surface any cap overflows on stderr — warn, never truncate.
             for r in results where r.overflowWarning != nil {
                 FileHandle.standardError.write(Data(("⚠ " + r.overflowWarning! + "\n").utf8))

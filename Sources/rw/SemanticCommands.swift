@@ -29,14 +29,32 @@ struct New: ParsableCommand {
 
         // Skill mode: emit the envelope for the host agent; no API call.
         if provider == .skill {
+            if options.wantsHTML {
+                throw ValidationError(
+                    "--html doesn't apply in skill mode (the host agent renders, "
+                    + "not rw). Run without --provider skill, or render the agent's "
+                    + "output yourself.")
+            }
             print(try SkillEnvelope.forNewFeatures(report).jsonString())
             return
         }
 
         let engine = try options.makeSemanticEngine(config: config, provider: provider)
+        let wantsHTML = options.wantsHTML
+        let htmlOut = options.htmlOut
+        let openInBrowser = options.open
+        let repoPath = options.repo
+        let range = report.range
         try runAsync {
             let features = try await engine.newFeatures(report)
-            print(features)
+            if wantsHTML {
+                let html = HTMLRender.newFeatures(features, range: range)
+                try writeHTMLReport(
+                    html, command: "new", range: range, repoPath: repoPath,
+                    outPath: htmlOut, open: openInBrowser)
+            } else {
+                print(features)
+            }
         }
     }
 }
@@ -133,6 +151,12 @@ struct Notes: ParsableCommand {
         // Skill mode emits the envelope; API providers call the model. Both need
         // the resolved limit, so compute it first (limits fetch may be async).
         if selectedProvider == .skill {
+            if options.wantsHTML {
+                throw ValidationError(
+                    "--html doesn't apply in skill mode (the host agent renders, "
+                    + "not rw). Run without --provider skill, or render the agent's "
+                    + "output yourself.")
+            }
             try runAsync {
                 let resolved = try await resolveLimit(
                     config: config, target: target, profile: profile,
@@ -145,12 +169,26 @@ struct Notes: ParsableCommand {
         }
 
         let engine = try options.makeSemanticEngine(config: config, provider: selectedProvider)
+        let wantsHTML = options.wantsHTML
+        let htmlOut = options.htmlOut
+        let openInBrowser = options.open
+        let repoPath = options.repo
+        let range = report.range
         try runAsync {
             let resolved = try await resolveLimit(
                 config: config, target: target, profile: profile,
                 userLimit: limitOption, refresh: refresh)
             let result = try await engine.note(report, target: target, product: profile, limit: resolved)
-            print(result.text)
+            if wantsHTML {
+                let html = HTMLRender.notes(
+                    result.text, target: target, limit: resolved,
+                    product: profile, range: range)
+                try writeHTMLReport(
+                    html, command: "notes-\(target.rawValue)", range: range,
+                    repoPath: repoPath, outPath: htmlOut, open: openInBrowser)
+            } else {
+                print(result.text)
+            }
             if let warning = result.overflowWarning {
                 FileHandle.standardError.write(Data(("\n⚠ " + warning + "\n").utf8))
             }

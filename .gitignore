@@ -25,3 +25,6 @@ docs/recap-wins-PRD.md
 docs/RELEASING.md
 CLAUDE.md
 .claude/
+
+# Generated HTML reports (rw --html default output)
+.rw/
