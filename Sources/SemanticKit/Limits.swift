@@ -46,6 +46,7 @@ public struct ReviewNoteLimits: Codable, Sendable, Equatable {
         case .whatNew: return platform == .iOS ? whatNewIOS : whatNewAndroid
         case .ascUpdate: return ascUpdate
         case .gpUpdate: return gpUpdate
+        case .changelog: return 0
         }
     }
 }

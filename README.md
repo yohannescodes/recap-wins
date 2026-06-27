@@ -102,7 +102,7 @@ machine-readable report, and `--html` to render the same view to a
 self-contained, offline HTML file (see [HTML output](#html-output)).
 
 New to `rw`? Run **`rw help`** for the in-terminal guide, or read the full
-[**User Guide**](docs/GUIDE.md).
+[**User Guide**](GUIDE.md).
 
 ```sh
 rw --base main             # what changed on this branch vs main
@@ -251,6 +251,16 @@ Roadmap, in order:
    this week"). Held back as the paid open-core layer.
 
 Releases are cut via a Homebrew formula built from a source tag.
+
+## Docs
+
+- [**User Guide**](GUIDE.md) — install, the mental model, every command, recipes,
+  and troubleshooting. The long-form version of `rw help`.
+- [**Changelogs**](docs/changelogs/) — one HTML page per release, written by
+  `rw notes --changelog`. The tool keeps a record of itself.
+- [**Contributing**](CONTRIBUTING.md) — build/test, house rules, where to file
+  issues, what's in and out of scope.
+- [**Releasing**](RELEASING.md) — how a new version goes out (maintainers).
 
 ## Development
 

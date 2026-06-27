@@ -35,6 +35,7 @@ public struct ProductProfile: Sendable, Equatable {
         case .ascUpdate: return targets["asc_update"]
         case .gpUpdate: return targets["gp_update"]
         case .whatNew: return targets["what_new"]
+        case .changelog: return targets["changelog"] ?? 1500
         case .pr, .ascReviewer: return nil
         }
     }

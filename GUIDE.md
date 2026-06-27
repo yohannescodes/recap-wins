@@ -15,11 +15,12 @@ This document is the long-form version of the same material.
 3. [Your first run](#3-your-first-run)
 4. [Commands](#4-commands)
 5. [Writing prose: `new` and `notes`](#5-writing-prose-new-and-notes)
-6. [Providers — who writes the prose](#6-providers--who-writes-the-prose)
-7. [Skill mode — no API key](#7-skill-mode--no-api-key)
-8. [Configuration](#8-configuration)
-9. [Recipes](#9-recipes)
-10. [Troubleshooting](#10-troubleshooting)
+6. [HTML output](#6-html-output)
+7. [Providers — who writes the prose](#7-providers--who-writes-the-prose)
+8. [Skill mode — no API key](#8-skill-mode--no-api-key)
+9. [Configuration](#9-configuration)
+10. [Recipes](#10-recipes)
+11. [Troubleshooting](#11-troubleshooting)
 
 ---
 
@@ -66,7 +67,7 @@ Verify:
 
 ```sh
 which rw      # → the path you linked
-rw --version  # → 0.1.0
+rw --version  # → 0.2.0
 ```
 
 > All three point at `.build/release/rw` inside the repo. Rebuilding keeps them
@@ -149,15 +150,16 @@ rw --json             # the same data as raw change_report.json
 | `rw market --product <id>` | a marketing content pack in the product's voice | semantic |
 | `rw help [topic]` | the built-in guide | — |
 
-Global flags on every command: `--repo`, `--base`, `--head`, and `--json` (emit
-the raw `change_report.json` instead of the formatted view — works offline on any
-command, including the semantic ones).
+Global flags on every command: `--repo`, `--base`, `--head`, `--json` (emit the
+raw `change_report.json` instead of the formatted view — works offline on any
+command, including the semantic ones), and `--html` (render the same view to a
+single self-contained, offline HTML file — see §6).
 
 ---
 
 ## 5. Writing prose: `new` and `notes`
 
-These two turn the change set into text. They need a **provider** (see §6) —
+These two turn the change set into text. They need a **provider** (see §7) —
 either an API key, or skill mode with no key.
 
 ### `rw new`
@@ -174,23 +176,30 @@ rw new --base develop --provider skill
 Writes a note for exactly **one** target. Each has its own audience, tone, and
 character ceiling:
 
-| Flag | Destination | Voice? | Cap |
-|---|---|---|---|
-| `--pr` | PR description (technical) | no | none |
-| `--asc-reviewer` | App Store Connect → App Review (private) | no | none |
-| `--what-new` | TestFlight / Play testing notes | yes | platform |
-| `--asc-update` | App Store "What's New" | yes | 4000 |
-| `--gp-update` | Google Play release notes | yes | 500/lang |
+| Flag | Destination | Voice? | Cap | Output |
+|---|---|---|---|---|
+| `--pr` | PR description (technical) | no | none | text |
+| `--asc-reviewer` | App Store Connect → App Review (private) | no | none | text |
+| `--what-new` | TestFlight / Play testing notes | yes | platform | text |
+| `--asc-update` | App Store "What's New" | yes | 4000 | text |
+| `--gp-update` | Google Play release notes | yes | 500/lang | text |
+| `--changelog` | Release-page changelog (committed artifact) | optional | none | **HTML only** |
 
 ```sh
 rw notes --pr
 rw notes --asc-update --product ledgerly
 rw notes --gp-update  --product ledgerly --limit 300
+rw notes --changelog --version-label v0.2.0 --base v0.1.1 --head HEAD
 ```
+
+**`--changelog` is HTML-only.** It always renders a self-contained release
+page, defaults its output under `docs/changelogs/v<version>.html`, and is the
+canonical "what changed" artifact you commit per release. See [RELEASING.md](RELEASING.md)
+for the workflow. Pass `--version-label v<version>` for the page title.
 
 **Product voice.** The user-facing store targets read voice + a soft length aim
 from the product profile, so pass `--product <id>` (configure profiles in
-`testthese.toml`, §8).
+`testthese.toml`, §9).
 
 **Character caps are hard ceilings.** `rw` *warns* if output would overflow — it
 never silently truncates. `--limit <n>` only **tightens**; it can't raise the
@@ -202,7 +211,53 @@ manifest with a baked-in offline fallback; `--refresh-limits` forces a refetch.
 
 ---
 
-## 6. Providers — who writes the prose
+## 6. HTML output
+
+Every command takes `--html`, which renders the same report to a **single
+self-contained HTML file** — inline CSS/JS, no CDN, no server, no extra model
+calls beyond what the command already made. The aesthetic is deliberately
+minimal — Verdana, narrow column, navy links, no chrome — readable and
+copy-friendly, not a dashboard.
+
+```sh
+rw --html                                    # vitals as an HTML page
+rw market --product ledgerly --html --open   # store-listing proof sheet in your browser
+rw notes --asc-update --product ledgerly --html
+```
+
+| Flag | Meaning |
+|---|---|
+| `--html` | Render to HTML. Writes to `.rw/<command>-<range>.html` by default. |
+| `--html-out <path>` | Override the output path (absolute, or relative to the repo). |
+| `--open` | Launch the file in your default browser after writing. |
+
+**Why a file, not a server.** A `localhost` server can't actually be shared and
+adds a port + lifecycle dependency for a view that's static anyway. The file
+is shareable, commit-able, re-openable offline, and needs no running process.
+
+**Per-command views.**
+
+- **`rw --html`** — the vitals dashboard: counts, hotspots, risk flags.
+- **`rw many --html`** — counts + by-declared-type breakdown.
+- **`rw blame --html`** — attribution by commit share.
+- **`rw branch --html`** — branches that contributed to the change set.
+- **`rw new --html`** — the feature list as plain prose.
+- **`rw notes <target> --html`** — the note rendered *in context* with a live
+  char meter against the store cap (plain → amber as it nears → red on
+  overflow) plus a copy button.
+- **`rw market --html`** — the **store-listing proof sheet**: each piece in
+  its own block with its own cap meter and copy button. The preview you'd
+  want before pasting into App Store Connect or Play Console.
+
+**Skill mode.** `--html` doesn't apply with `--provider skill` — in skill mode
+the host agent is the renderer, not `rw`. Passing both raises a clean error.
+
+**`.rw/` is ignored by git** in this repo's `.gitignore`. Add the same line to
+your own `.gitignore` so generated HTML doesn't get committed by accident.
+
+---
+
+## 7. Providers — who writes the prose
 
 The semantic commands run through a **provider**, chosen by the `provider` key in
 `testthese.toml` or the `--provider` flag (the flag wins):
@@ -211,7 +266,7 @@ The semantic commands run through a **provider**, chosen by the `provider` key i
 |---|---|---|
 | `anthropic` *(default)* | yes | Calls the Anthropic API and prints the prose |
 | `gemini` | yes | Calls the Google Gemini API and prints the prose |
-| `skill` | **no** | Emits JSON for a host agent to complete (see §7) |
+| `skill` | **no** | Emits JSON for a host agent to complete (see §8) |
 
 **API key** (`anthropic` / `gemini`): set the provider's env var —
 `ANTHROPIC_API_KEY` or `GEMINI_API_KEY` (preferred) — or `api_key` in
@@ -221,12 +276,12 @@ model. If no key is set, the semantic commands exit with a clear message — not
 crash.
 
 > A Claude **Max/Pro plan** covers claude.ai and Claude Code, **not** the
-> pay-as-you-go Anthropic API. If you don't have API credits, use skill mode (§7)
+> pay-as-you-go Anthropic API. If you don't have API credits, use skill mode (§8)
 > — it routes the model work through your agent session at no extra cost.
 
 ---
 
-## 7. Skill mode — no API key
+## 8. Skill mode — no API key
 
 In skill mode, `rw` does all the deterministic work and emits a JSON **envelope**;
 a host agent (Claude Code, Cowork) reads it and writes the prose. No key, no
@@ -271,7 +326,7 @@ The JSON `new`/`notes` emit in skill mode contains:
 
 ---
 
-## 8. Configuration
+## 9. Configuration
 
 Per-repo, human-readable. Drop a `testthese.toml` in the repo root. Every key is
 optional — `rw` works with no config. Copy `testthese.toml.example` to start.
@@ -314,7 +369,7 @@ Two tiers of limit, kept distinct:
 
 ---
 
-## 9. Recipes
+## 10. Recipes
 
 **See what a branch introduced, offline:**
 ```sh
@@ -349,9 +404,25 @@ rw --repo ~/code/mogwar --base release/2.0 --head feature/onboarding
 rw --json > report.json
 ```
 
+**Preview the marketing pack as a store-listing proof sheet, in your browser:**
+```sh
+rw market --product ledgerly --html --open
+```
+
+**Render the App Store note with a live char meter against the 4000-char cap:**
+```sh
+rw notes --asc-update --product ledgerly --html --open
+```
+
+**Generate the per-release changelog page (the canonical artifact you commit):**
+```sh
+rw notes --changelog --version-label v0.2.0 --base v0.1.1 --head HEAD
+# → docs/changelogs/v0.2.0.html
+```
+
 ---
 
-## 10. Troubleshooting
+## 11. Troubleshooting
 
 **`zsh: command not found: rw`** — the binary isn't on your PATH. Re-do the
 symlink/alias step in §1, then `which rw`.
@@ -365,7 +436,7 @@ don't use conventional-commit prefixes, so they bucket as chores. Use `rw new`
 
 **`No Anthropic API key` / `No Gemini API key`** — set the provider's env var
 (`ANTHROPIC_API_KEY` or `GEMINI_API_KEY`), or use `--provider skill` for the
-key-free path (§7).
+key-free path (§8).
 
 **Output overflows a store cap** — `rw` warns but doesn't truncate. Tighten with
 `--limit <n>`, or regenerate; the store form is the final authority.

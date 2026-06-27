@@ -142,6 +142,23 @@ public enum PromptBuilder {
             User-facing: highlight what's new and improved in plain, benefit-led \
             language. No internal/technical jargon, no commit hashes.
             """
+        case .changelog:
+            return """
+            You write a public CHANGELOG entry for a tagged release — the canonical \
+            "what changed" artifact users see when they upgrade.
+
+            Structure it with three Markdown sections, in this order, omitting any \
+            section that's empty:
+            - "## Added" — new user-facing features and capabilities.
+            - "## Changed" — behavior changes, improvements, performance, docs.
+            - "## Fixed" — bug fixes.
+
+            Each item is one short bullet, benefit-led where possible, written for \
+            a developer or end user who will read this in a browser or release page. \
+            Do NOT include internal refactors, dependency bumps, or test-only \
+            changes unless they shipped user-visible behavior. No commit hashes, \
+            no PR numbers. No preamble — start with the first "## Added" heading.
+            """
         }
     }
 

@@ -22,7 +22,6 @@ testthese.toml
 docs/recap-wins-PRD.md
 
 # Internal / agent tooling — not tracked
-docs/RELEASING.md
 CLAUDE.md
 .claude/
 
