@@ -24,6 +24,32 @@ struct AlignOptions: ParsableArguments {
     @Flag(name: .customLong("ledger-only"), help: "Skip the matcher; emit only the per-port ledgers.")
     var ledgerOnly: Bool = false
 
+    /// Render the report as a single self-contained, offline HTML file —
+    /// the filterable parity matrix (FRD §9.1). Like the other --html flags
+    /// across rw, no extra model calls beyond the matcher run.
+    ///
+    /// Named `--matrix` (with a `--page` alias) instead of `--html` for the
+    /// same reason `--emit-json` exists: the root `rw` command already has
+    /// a `--html` flag and swift-argument-parser resolves the parent's first
+    /// on a name collision. `--matrix` reads naturally as "the parity matrix
+    /// view" and matches the FRD's language.
+    @Flag(
+        name: [.customLong("matrix"), .customLong("page")],
+        help: "Render the parity matrix as a self-contained, offline HTML file.")
+    var matrix: Bool = false
+
+    /// Override the default HTML output path. Defaults to
+    /// `.rw/align-<a>-<b>.html` (same convention as other rw HTML commands).
+    @Option(
+        name: [.customLong("matrix-out"), .customLong("html-out")],
+        help: ArgumentHelp(
+            "Output path for --matrix. Default: .rw/align-<a>-<b>.html.",
+            valueName: "path"))
+    var matrixOut: String?
+
+    @Flag(name: .customLong("open-matrix"), help: "Open the generated parity matrix in the default browser.")
+    var openMatrix: Bool = false
+
     @Option(name: .long, help: "Product id with a configured port pair (testthese.toml).")
     var product: String?
 
@@ -52,6 +78,22 @@ struct AlignOptions: ParsableArguments {
             valueName: "ref"))
     var since: String?
 
+    @Option(
+        name: .long,
+        help: ArgumentHelp(
+            "Issue-draft format. Defaults to markdown (the source).",
+            valueName: "markdown|linear|github|jira"))
+    var issues: String = "markdown"
+
+    @Option(
+        name: .long,
+        help: ArgumentHelp(
+            "Confirm a match by id and append it to testthese.toml as a "
+            + "curated parity equivalence. Run align first, find the id, "
+            + "then pass it here.",
+            valueName: "match-id"))
+    var confirm: String?
+
     @Option(name: .long, help: "Backend: anthropic (API), skill (key-free, emits envelope), gemini.")
     var provider: String?
 
@@ -62,9 +104,10 @@ struct AlignOptions: ParsableArguments {
 /// `rw align` — compare two ports of the same product and report parity (FRD).
 ///
 /// Unlike every other `rw` command, `align` reads TWO repos with no shared
-/// git history. Slice 1 built the deterministic ledger half; slice 2 (this
-/// PR) adds the semantic matcher and tracker-agnostic issue drafts; slice 3
-/// will add the HTML parity matrix and the curated-map confirmation loop.
+/// git history. The full FRD-spec command shipped over three slices:
+/// (1) per-port feature ledger extraction, (2) the semantic matcher + drafted
+/// issues, (3) the filterable HTML parity matrix + `--confirm` loop and
+/// tracker-flavored `--issues` formatters.
 struct Align: ParsableCommand {
     static let configuration = CommandConfiguration(
         abstract: "Compare two ports of the same product and report parity gaps."
@@ -89,6 +132,19 @@ struct Align: ParsableCommand {
         }
         if (options.a != nil) != (options.b != nil) {
             throw ValidationError("--a and --b must be provided together.")
+        }
+        if IssueFormat.parse(options.issues) == nil {
+            let valid = IssueFormat.allCases.map(\.rawValue).joined(separator: ", ")
+            throw ValidationError(
+                "--issues '\(options.issues)' isn't recognized. Pick one of: \(valid).")
+        }
+        if options.confirm != nil && options.product == nil {
+            throw ValidationError(
+                "--confirm requires --product (the curated map lives under a product profile).")
+        }
+        if options.confirm != nil && options.ledgerOnly {
+            throw ValidationError(
+                "--confirm needs matcher results; can't combine with --ledger-only.")
         }
     }
 
@@ -120,8 +176,21 @@ struct Align: ParsableCommand {
         let provider = try resolveProvider(flag: options.provider, config: config)
 
         // Skill mode: hand the envelope to the host agent and exit. No model
-        // call from rw, no API key required.
+        // call from rw, no API key required. --html / --confirm don't apply
+        // here because rw doesn't see the agent's response — surface a clean
+        // error rather than silently producing nothing.
         if provider == .skill {
+            if options.matrix {
+                throw ValidationError(
+                    "--matrix doesn't apply in skill mode (rw doesn't see the agent's "
+                    + "match results). Run without --provider skill, or pipe the "
+                    + "agent's reply through --emit-json + a separate render step.")
+            }
+            if options.confirm != nil {
+                throw ValidationError(
+                    "--confirm doesn't apply in skill mode (rw doesn't see the "
+                    + "agent's match results). Run without --provider skill.")
+            }
             let envelope = SkillEnvelope.forAlign(
                 ledgerA: ledgerA, ledgerB: ledgerB,
                 equivalences: equivalences,
@@ -148,6 +217,12 @@ struct Align: ParsableCommand {
                 suggestedIssues: result.issues,
                 generatedBy: provider.rawValue,
                 disclaimer: AlignReport.standardDisclaimer)
+            // --confirm short-circuits the normal emit: find the named match,
+            // append it as a curated equivalence, report what happened.
+            if let matchID = options.confirm {
+                try confirmMatch(matchID, in: report)
+                return
+            }
             try emit(report: report)
         }
     }
@@ -156,10 +231,85 @@ struct Align: ParsableCommand {
 
     /// Print the report in whichever shape the user asked for.
     private func emit(report: AlignReport) throws {
+        if options.matrix {
+            let html = HTMLRender.alignReport(report)
+            try writeHTMLReport(
+                html, command: "align",
+                range: ChangeRange(
+                    base: report.portA.portName, head: report.portB.portName,
+                    baseSHA: report.portA.headSHA, headSHA: report.portB.headSHA,
+                    mergeBaseSHA: report.portA.headSHA),
+                repoPath: options.configRepo,
+                outPath: options.matrixOut, open: options.openMatrix)
+            return
+        }
         if options.emitJSON {
             print(try report.jsonString())
-        } else {
-            print(Render.alignReport(report))
+            return
+        }
+        print(Render.alignReport(report))
+        // When --issues is anything but the default, also emit the formatted
+        // drafts after the human view — saves a second `rw align ...` run.
+        let format = IssueFormat.parse(options.issues) ?? .markdown
+        if format != .markdown && !report.suggestedIssues.isEmpty {
+            print("--- issues (\(format.rawValue)) ---\n")
+            print(IssueFormatter.formatAll(report.suggestedIssues, as: format))
+            print("")
+        }
+    }
+
+    // MARK: - --confirm
+
+    /// Append the named match as a curated parity equivalence and report.
+    /// The match must classify as `equivalent` or `ambiguous` — confirming
+    /// an actual paired/gap is meaningless (paired needs no curation; gaps
+    /// are gaps, not equivalences).
+    private func confirmMatch(_ matchID: String, in report: AlignReport) throws {
+        guard let productID = options.product else { return }   // validate() catches this
+        guard let match = report.features.first(where: { $0.id == matchID }) else {
+            let available = report.features.map(\.id).joined(separator: ", ")
+            throw ValidationError(
+                "No match with id '\(matchID)' in this run. "
+                + "Available ids: \(available.isEmpty ? "(none)" : available).")
+        }
+        switch match.status {
+        case .paired:
+            throw ValidationError(
+                "match '\(matchID)' is already 'paired' — no equivalence needed.")
+        case .gapOnA, .gapOnB:
+            throw ValidationError(
+                "match '\(matchID)' is a gap, not an equivalence. "
+                + "Confirming a gap as equivalent would hide real missing work.")
+        case .equivalent, .ambiguous:
+            break
+        }
+        guard let a = match.descriptionA, let b = match.descriptionB else {
+            throw ValidationError(
+                "match '\(matchID)' is missing one side's description; "
+                + "can't write a complete equivalence entry.")
+        }
+
+        let configPath = (options.configRepo as NSString)
+            .appendingPathComponent("testthese.toml")
+        do {
+            let outcome = try ParityMapUpdater.append(
+                a: a, b: b, note: match.equivalenceNote,
+                productId: productID, configPath: configPath)
+            switch outcome {
+            case .appended:
+                print("Added equivalence to \(configPath):")
+                print("  a = \"\(a)\"")
+                print("  b = \"\(b)\"")
+                if let note = match.equivalenceNote, !note.isEmpty {
+                    print("  note = \"\(note)\"")
+                }
+                print("It won't be re-flagged on the next align run.")
+            case .alreadyPresent:
+                print("Already in \(configPath): \"\(a)\" ↔ \"\(b)\".")
+                print("No change made.")
+            }
+        } catch let err as ParityMapError {
+            throw ValidationError(err.description)
         }
     }
 

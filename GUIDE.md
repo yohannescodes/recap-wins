@@ -148,7 +148,7 @@ rw --json             # the same data as raw change_report.json
 | `rw new` | list the new user-facing features | semantic |
 | `rw notes <target>` | write a review/release note | semantic |
 | `rw market --product <id>` | a marketing content pack in the product's voice | semantic |
-| `rw align --product <id>` | cross-port parity — matcher + drafted issues (preview) | semantic |
+| `rw align --product <id>` | cross-port parity — matcher, HTML matrix, drafted issues, `--confirm` loop | semantic |
 | `rw help [topic]` | the built-in guide | — |
 
 Global flags on every command: `--repo`, `--base`, `--head`, `--json` (emit the
@@ -156,18 +156,15 @@ raw `change_report.json` instead of the formatted view — works offline on any
 command, including the semantic ones), and `--html` (render the same view to a
 single self-contained, offline HTML file — see §6).
 
-### `rw align` (preview — HTML matrix in slice 3)
+### `rw align`
 
 `rw align` compares two native ports of the same product (e.g. Ledgerly iOS
 in Swift and Ledgerly Android in Kotlin) and surfaces parity gaps. Unlike
 every other command, it reads **two repos with no shared git history** — so
 there's nothing for `git diff` to compare. Instead it builds a
-**feature ledger** for each side, then runs a semantic matcher that
-classifies each feature pairing and drafts tracker-agnostic issues for
-confirmed gaps.
-
-Status: **slices 1 and 2 are in.** Slice 3 (the filterable HTML parity
-matrix) is the next step.
+**feature ledger** for each side, runs a semantic matcher that classifies
+each feature pairing, drafts tracker-agnostic issues for confirmed gaps,
+and (optionally) renders the whole thing as a filterable HTML parity matrix.
 
 ```sh
 # Three input modes:
@@ -175,14 +172,21 @@ rw align --product ledgerly                    # uses [product.ports] from confi
 rw align --with ../ledgerly-android            # current repo is side A
 rw align --a ./ios --b ./android               # both sides explicit
 
-# Three rendering modes:
+# Rendering modes:
 rw align --product ledgerly                    # human-readable parity read (default)
+rw align --product ledgerly --matrix --open-matrix    # filterable HTML page in the browser
 rw align --product ledgerly --emit-json        # raw AlignReport JSON
 rw align --product ledgerly --ledger-only      # skip the matcher; ledgers only (offline, key-free)
+
+# Issue formats (tracker-flavored wrappers around the markdown source):
+rw align --product ledgerly --issues linear    # Linear-flavored
+rw align --product ledgerly --issues github    # GitHub-flavored (gh issue create-friendly)
+rw align --product ledgerly --issues jira      # Jira wiki markup
 
 # Plus:
 rw align --product ledgerly --since v1.0       # baseline override
 rw align --product ledgerly --provider skill   # key-free, host agent matches
+rw align --product ledgerly --confirm m3       # promote match m3 into the curated parity map
 ```
 
 The matcher classifies each feature as one of:
@@ -202,11 +206,41 @@ APNs/FCM, iCloud/Drive, WidgetKit/Glance, SwiftUI/Compose, Core Data/Room,
 Combine/Flow, TestFlight/Play Internal Testing) ships with `rw`. Your
 `[[product.parity.equivalent]]` entries extend it.
 
-> **Why `--emit-json` and not `--json`?** The root `rw` command already has
-> a `--json` flag (for the vitals report); when subcommand and parent share
-> a long flag name, swift-argument-parser resolves the parent's first.
-> `--emit-json` sidesteps the collision and reads clearly as "emit the
-> AlignReport JSON".
+#### The parity matrix (`--matrix`)
+
+`--matrix` renders the report as a single self-contained, offline HTML
+file — same aesthetic as the other `rw` HTML output. Two-column layout
+(side A on the left, side B on the right), each feature carrying its
+status chip and confidence pill. Filter chips at the top let you focus on
+just gaps, just ambiguous, etc. Drafted issues appear below the matrix
+with copy buttons.
+
+`--matrix-out <path>` overrides the default `.rw/align-<a>-<b>.html`;
+`--open-matrix` launches it in the browser after writing.
+
+#### Confirming equivalences (`--confirm <match-id>`)
+
+When the matcher flags an `equivalent` or `ambiguous` pair you agree with,
+`rw align --product <id> --confirm <match-id>` appends a
+`[[product.parity.equivalent]]` entry to `testthese.toml` so it stops
+re-flagging on every run. Idempotent: re-confirming the same pair is a
+no-op. Run `align` first to see the match ids, then `--confirm` the one
+you want to lock in.
+
+#### Issue formats (`--issues`)
+
+The matcher's `IssueDraft` body is canonical Markdown. `--issues` layers
+on tracker-flavored wrappers without any API call: `markdown` (default),
+`linear` (h1 title + `Labels:` line), `github` (`Title:`/`Labels:` prefixes
+for `gh issue create` piping), `jira` (wiki markup — `h2.`, `*bold*`,
+`{{code}}`, `*` bullets).
+
+> **Why `--matrix` instead of `--html`, and `--emit-json` instead of `--json`?**
+> The root `rw` command already has `--html` and `--json` flags (for the
+> vitals report); when a subcommand and the parent share a long flag name,
+> swift-argument-parser resolves the parent's first. `--matrix` / `--emit-json`
+> sidestep the collision and read clearly. `--page` is also accepted as a
+> `--matrix` alias.
 
 Configure a port pair in `testthese.toml` (see `testthese.toml.example`):
 
