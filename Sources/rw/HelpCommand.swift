@@ -122,8 +122,9 @@ enum HelpText {
 
         \(h("rw")) \(dim("(default) — vitals dashboard")) \(dim("· offline"))
           One-screen health read: feature/fix/chore counts, files +/-, contributors,
-          branches, hotspots (largest churn), and advisory risk flags.
-          \(cmd("rw"))   \(cmd("rw --base develop"))   \(cmd("rw --json"))
+          branches, hotspots (largest churn), and advisory risk flags. Bare `rw`
+          is plain-text only; use \(cmd("rw vitals")) for \(cmd("--json"))/\(cmd("--html")).
+          \(cmd("rw"))   \(cmd("rw --base develop"))   \(cmd("rw vitals --json"))   \(cmd("rw vitals --html"))
 
         \(h("rw many")) \(dim("— count what was introduced")) \(dim("· offline"))
           Features / fixes / chores, plus a by-type breakdown. Deterministic.
@@ -153,14 +154,14 @@ enum HelpText {
           Compares two native ports of the same product: semantic matcher,
           drafted issues, filterable HTML matrix, --confirm loop into a
           curated parity map. See \(cmd("rw help align")) for the full story.
-          \(cmd("rw align --product ledgerly"))   \(cmd("rw align --product ledgerly --matrix --open-matrix"))
+          \(cmd("rw align --product ledgerly"))   \(cmd("rw align --product ledgerly --html --open"))
 
         \(h("GLOBAL"))
           \(cmd("--repo <path>"))  \(cmd("--base <ref>"))  \(cmd("--head <ref>"))  \(cmd("--json"))
           \(cmd("--html"))         render to a self-contained, offline HTML file
           \(cmd("--html-out <p>")) override the output path  \(cmd("--open")) open it after writing
-          \(dim("--json emits the raw change_report.json on any command — offline, no key."))
-          \(dim("--html composes with every command; no extra model calls beyond the run."))
+          \(dim("--json / --html live on each subcommand (including align); the bare root rw"))
+          \(dim("only takes --repo/--base/--head — use `rw vitals` for vitals JSON/HTML."))
         """
     }
 
@@ -262,8 +263,8 @@ enum HelpText {
 
         \(h("RENDERING"))
           \(cmd("rw align --product ledgerly"))                       human-readable read (default)
-          \(cmd("rw align --product ledgerly --matrix --open-matrix")) filterable HTML in browser
-          \(cmd("rw align --product ledgerly --emit-json"))           raw AlignReport JSON
+          \(cmd("rw align --product ledgerly --html --open"))         filterable HTML in browser
+          \(cmd("rw align --product ledgerly --json"))                raw AlignReport JSON
           \(cmd("rw align --product ledgerly --ledger-only"))         skip matcher; ledgers only
           \(cmd("rw align --product ledgerly --provider skill"))      key-free; agent matches
 
@@ -300,12 +301,12 @@ enum HelpText {
           Internal Testing. Your \(cmd("[[product.parity.equivalent]]")) entries
           extend it per product.
 
-        \(h("WHY --matrix AND --emit-json INSTEAD OF --html / --json"))
-          The root \(cmd("rw")) command already has --html and --json flags (for
-          the vitals report). When subcommand and parent share a long flag
-          name, argument-parser resolves the parent's first; --matrix and
-          --emit-json sidestep the collision. \(cmd("--page")) is also accepted as
-          a --matrix alias.
+        \(h("LEGACY FLAG NAMES"))
+          \(cmd("--matrix")) / \(cmd("--matrix-out")) / \(cmd("--open-matrix")) / \(cmd("--page")) / \(cmd("--emit-json"))
+          still work as aliases for one release — they pre-date the v0.3
+          split that gave the root \(cmd("rw")) command its own narrower flag set
+          so \(cmd("--html")) / \(cmd("--json")) could land cleanly on \(cmd("align")).
+          Prefer \(cmd("--html")) / \(cmd("--json")) going forward.
 
         \(h("CONFIG")) \(dim("(testthese.toml)"))
           [[product]]

@@ -8,14 +8,12 @@ import SemanticKit
 /// ParsableCommand when they live in an OptionGroup (matching the pattern
 /// every other rw command uses).
 struct AlignOptions: ParsableArguments {
-    /// Named `--emit-json` (not `--json`) because the root `rw` command
-    /// already has a `--json` flag (for the vitals report), and
-    /// swift-argument-parser resolves the parent's flag first when both
-    /// declare the same long name. The FRD §4 flag table calls it `--json`,
-    /// but the parent-name collision makes that ambiguous in practice;
-    /// `--emit-json` is unambiguous and reads cleanly as "emit the AlignReport
-    /// JSON". RELEASING.md and GUIDE.md document the discrepancy.
-    @Flag(name: .customLong("emit-json"), help: "Emit the raw AlignReport JSON instead of the formatted view.")
+    /// `--emit-json` is kept as an alias for one release: earlier versions
+    /// exposed only that name because the root command's `--json` flag
+    /// shadowed the subcommand's, so users may have scripts on it.
+    @Flag(
+        name: [.customLong("json"), .customLong("emit-json")],
+        help: "Emit the raw AlignReport JSON instead of the formatted view.")
     var emitJSON: Bool = false
 
     /// Skip the semantic match and emit only the two ledgers (the slice-1
@@ -28,26 +26,26 @@ struct AlignOptions: ParsableArguments {
     /// the filterable parity matrix (FRD §9.1). Like the other --html flags
     /// across rw, no extra model calls beyond the matcher run.
     ///
-    /// Named `--matrix` (with a `--page` alias) instead of `--html` for the
-    /// same reason `--emit-json` exists: the root `rw` command already has
-    /// a `--html` flag and swift-argument-parser resolves the parent's first
-    /// on a name collision. `--matrix` reads naturally as "the parity matrix
-    /// view" and matches the FRD's language.
+    /// `--matrix` and `--page` are kept as aliases for one release: earlier
+    /// versions exposed only those names because the root command's `--html`
+    /// flag shadowed the subcommand's, so users may have scripts on them.
     @Flag(
-        name: [.customLong("matrix"), .customLong("page")],
+        name: [.customLong("html"), .customLong("matrix"), .customLong("page")],
         help: "Render the parity matrix as a self-contained, offline HTML file.")
     var matrix: Bool = false
 
     /// Override the default HTML output path. Defaults to
     /// `.rw/align-<a>-<b>.html` (same convention as other rw HTML commands).
     @Option(
-        name: [.customLong("matrix-out"), .customLong("html-out")],
+        name: [.customLong("html-out"), .customLong("matrix-out")],
         help: ArgumentHelp(
-            "Output path for --matrix. Default: .rw/align-<a>-<b>.html.",
+            "Output path for --html. Default: .rw/align-<a>-<b>.html.",
             valueName: "path"))
     var matrixOut: String?
 
-    @Flag(name: .customLong("open-matrix"), help: "Open the generated parity matrix in the default browser.")
+    @Flag(
+        name: [.customLong("open"), .customLong("open-matrix")],
+        help: "Open the generated HTML in the default browser (with --html).")
     var openMatrix: Bool = false
 
     @Option(name: .long, help: "Product id with a configured port pair (testthese.toml).")
@@ -182,9 +180,9 @@ struct Align: ParsableCommand {
         if provider == .skill {
             if options.matrix {
                 throw ValidationError(
-                    "--matrix doesn't apply in skill mode (rw doesn't see the agent's "
+                    "--html doesn't apply in skill mode (rw doesn't see the agent's "
                     + "match results). Run without --provider skill, or pipe the "
-                    + "agent's reply through --emit-json + a separate render step.")
+                    + "agent's reply through --json + a separate render step.")
             }
             if options.confirm != nil {
                 throw ValidationError(
