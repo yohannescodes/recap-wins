@@ -1,0 +1,134 @@
+# Warn when a PR changes user-facing CLI code (Sources/rw/**) without
+# touching README.md or GUIDE.md. Soft signal, not a block — the project's
+# rule is "docs ship with code" and this just makes a forgotten doc update
+# visible at PR time instead of after the fact.
+#
+# Why scoped to Sources/rw/**: that target holds the CLI surface (commands,
+# flags, help text). Changes there are almost always user-visible. Refactors
+# under Sources/RecapCore/** or Sources/SemanticKit/** are internal and
+# don't always need GUIDE updates — those would produce false positives.
+#
+# This check NEVER fails the build. It only writes a comment / sets a
+# neutral status. Authors decide if the warning applies.
+
+name: Docs drift check
+
+on:
+  pull_request:
+    paths:
+      - "Sources/rw/**"
+      - "README.md"
+      - "GUIDE.md"
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Need full history so we can diff against the PR's base branch.
+          fetch-depth: 0
+
+      - name: Detect drift
+        id: detect
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # All files this PR touches.
+          changed=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          rw_changed=$(echo "$changed" | grep -E '^Sources/rw/' || true)
+          docs_changed=$(echo "$changed" | grep -E '^(README\.md|GUIDE\.md)$' || true)
+
+          # Drift = CLI surface changed AND no doc file touched.
+          if [ -n "$rw_changed" ] && [ -z "$docs_changed" ]; then
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+            # Capture which CLI files changed so the comment can be specific.
+            {
+              echo "files<<RW_FILES_EOF"
+              echo "$rw_changed"
+              echo "RW_FILES_EOF"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "drift=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Post or update comment
+        if: steps.detect.outputs.drift == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          FILES: ${{ steps.detect.outputs.files }}
+        run: |
+          # The comment is identified by a HTML marker so re-runs update the
+          # same comment instead of spamming the PR. (Standard pattern for
+          # CI bot comments.)
+          MARKER='<!-- docs-drift-check -->'
+          BODY=$(cat <<EOF
+          $MARKER
+          ### 📝 Docs sync reminder
+
+          This PR changes files under \`Sources/rw/\` — the user-facing CLI
+          surface — but doesn't touch \`README.md\` or \`GUIDE.md\`.
+
+          The project's rule is **docs ship with code, in the same PR**
+          (see [feedback memory](https://github.com/$REPO/blob/main/CONTRIBUTING.md)).
+          If this PR adds a new command, flag, or behavior, please update
+          the docs in the same PR. Internal refactors that don't change
+          user-visible behavior are exempt — feel free to ignore this then.
+
+          **Files that changed:**
+          \`\`\`
+          $FILES
+          \`\`\`
+
+          This is a soft warning. It doesn't block the build.
+          EOF
+          )
+
+          # Find an existing drift comment by the marker and update it,
+          # otherwise create a new one.
+          existing=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq ".[] | select(.body | contains(\"$MARKER\")) | .id" \
+            | head -n1)
+
+          if [ -n "$existing" ]; then
+            echo "Updating existing drift comment #$existing"
+            gh api -X PATCH "repos/$REPO/issues/comments/$existing" \
+              -f body="$BODY" >/dev/null
+          else
+            echo "Posting new drift comment"
+            gh pr comment "$PR_NUMBER" --body "$BODY"
+          fi
+
+      - name: Clear stale comment if drift resolved
+        if: steps.detect.outputs.drift == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          # If the author addressed the drift (by updating docs) on a later
+          # push, edit the previous warning into a brief "resolved" note
+          # rather than deleting it (audit trail).
+          MARKER='<!-- docs-drift-check -->'
+          existing=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq ".[] | select(.body | contains(\"$MARKER\")) | .id" \
+            | head -n1)
+          if [ -n "$existing" ]; then
+            RESOLVED=$(cat <<EOF
+          $MARKER
+          ### ✅ Docs sync — resolved
+
+          Docs (\`README.md\` and/or \`GUIDE.md\`) are now updated in this PR. 👍
+          EOF
+            )
+            gh api -X PATCH "repos/$REPO/issues/comments/$existing" \
+              -f body="$RESOLVED" >/dev/null
+          fi

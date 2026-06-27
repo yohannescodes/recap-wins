@@ -138,6 +138,25 @@ access to `yohannescodes/novarch.lol`). The novarch.lol repo also needs
 write" with PR creation allowed, or its sync workflow can't open the PR.
 Set once; both stay in effect.
 
+### Site prose updates (still a human call)
+
+The novarch.lol sync workflow does **mechanical** updates: version pill,
+latest-release link, mirrored changelog page. It does **not** rewrite the
+hero copy, add a new section for a headline feature, or restructure the
+landing page. Those judgement calls stay with you.
+
+To make the prose work impossible to forget, the sync PR opens with a
+**"Prose review checklist"** in its body: a list of every new command and
+flag added since the previous tag, plus a link to the GUIDE.md diff to
+mirror. Walk the checklist, decide what site copy needs editing, push
+those edits to the same sync PR before merging.
+
+The companion safeguard is at PR time on this repo:
+**`.github/workflows/docs-drift.yml`** posts a comment on any PR that
+touches `Sources/rw/**` without updating `README.md` or `GUIDE.md`. Soft
+warning, never blocks the build — internal refactors are exempt; the
+check exists to flag forgotten doc updates, not to gate work.
+
 ## PR 2 — Homebrew formula
 
 1. From `main` (now with the tag), open a second branch:
