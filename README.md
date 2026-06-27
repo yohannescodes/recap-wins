@@ -256,8 +256,8 @@ Releases are cut via a Homebrew formula built from a source tag.
 
 - [**User Guide**](GUIDE.md) — install, the mental model, every command, recipes,
   and troubleshooting. The long-form version of `rw help`.
-- [**Changelogs**](docs/changelogs/) — one HTML page per release, written by
-  `rw notes --changelog`. The tool keeps a record of itself.
+- [**Changelog**](CHANGELOG.md) — cumulative, newest-first. Each entry links
+  to a rendered [release page](docs/changelogs/) written by `rw` itself.
 - [**Contributing**](CONTRIBUTING.md) — build/test, house rules, where to file
   issues, what's in and out of scope.
 - [**Releasing**](RELEASING.md) — how a new version goes out (maintainers).
