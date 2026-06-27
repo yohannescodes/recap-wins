@@ -92,25 +92,27 @@ to diff against something else.
 | `rw many` | Just the counts: features / fixes / chores | no |
 | `rw blame` | Who changed what | no |
 | `rw branch` | Which branches fed into this change | no |
-| `rw align --product <id>` | Cross-port parity: matcher, HTML matrix, drafted issues, `--confirm` loop | yes\* |
+| `rw align --product <id>` | Cross-port parity: matcher, HTML matrix (`--html`), drafted issues, `--confirm` loop | yes\* |
 | `rw help [topic]` | The built-in guide — `concepts`, `notes`, `providers`, `skill`, `config` | — |
 
 <sub>* …or run it key-free through an agent — see [Skill mode](#agent-skill-no-api-key).</sub>
 
-Useful shared flags: `--base <ref>` / `--head <ref>` to pick what you're
-comparing, `--repo <path>` to run against another checkout, `--json` for the raw
-machine-readable report, and `--html` to render the same view to a
-self-contained, offline HTML file (see [HTML output](#html-output)).
+Useful shared flags on every subcommand: `--base <ref>` / `--head <ref>` to
+pick what you're comparing, `--repo <path>` to run against another checkout,
+`--json` for the raw machine-readable report, and `--html` to render the same
+view to a self-contained, offline HTML file (see [HTML output](#html-output)).
+The bare `rw` (no subcommand) prints vitals as plain text — use `rw vitals`
+when you want `--json` or `--html` on the vitals view.
 
 New to `rw`? Run **`rw help`** for the in-terminal guide, or read the full
 [**User Guide**](GUIDE.md).
 
 ```sh
-rw --base main             # what changed on this branch vs main
-rw many --base develop     # just the feature/fix/chore counts vs develop
-rw --json > report.json    # the raw report, for piping into something else
-rw new                     # the features you added (needs a key, or skill mode)
-rw notes --pr              # a PR description
+rw --base main                   # what changed on this branch vs main
+rw many --base develop           # just the feature/fix/chore counts vs develop
+rw vitals --json > report.json   # the raw vitals report, for piping into something else
+rw new                           # the features you added (needs a key, or skill mode)
+rw notes --pr                    # a PR description
 ```
 
 ### The commands that write for you (`new`, `notes`, `market`)
@@ -186,9 +188,10 @@ beyond what the command already made. Useful when terminal scrollback is the
 wrong surface for what you produced:
 
 ```sh
-rw --html                                    # vitals as an HTML page
+rw vitals --html                             # vitals as an HTML page
 rw market --product ledgerly --html --open   # store-listing proof sheet, in your browser
 rw notes --asc-update --product ledgerly --html
+rw align --product ledgerly --html --open    # filterable parity matrix
 ```
 
 The default output path is `.rw/<command>-<range>.html` under the repo (added

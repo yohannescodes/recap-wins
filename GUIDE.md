@@ -67,7 +67,7 @@ Verify:
 
 ```sh
 which rw      # → the path you linked
-rw --version  # → 0.2.1
+rw --version  # → 0.3.0
 ```
 
 > All three point at `.build/release/rw` inside the repo. Rebuilding keeps them
@@ -131,9 +131,15 @@ source changed with no tests alongside). Risk flags are a nudge, never a gate.
 Everything here is deterministic and instant — no key, no network.
 
 ```sh
-rw --base develop     # compare against develop instead of main
-rw --json             # the same data as raw change_report.json
+rw --base develop         # compare against develop instead of main
+rw vitals --json          # the same data as raw change_report.json
+rw vitals --html --open   # vitals as a self-contained HTML page
 ```
+
+> Bare `rw` only prints the formatted dashboard. For the JSON / HTML versions
+> of vitals, use the explicit `rw vitals` subcommand — those flags don't live
+> on the root command anymore (it would shadow the same-named flags on
+> subcommands like `align`).
 
 ---
 
@@ -141,20 +147,23 @@ rw --json             # the same data as raw change_report.json
 
 | Command | What it does | Mode |
 |---|---|---|
-| `rw` *(default)* | vitals dashboard | offline |
+| `rw` *(default)* | vitals dashboard (plain text only — see `rw vitals` for `--json` / `--html`) | offline |
+| `rw vitals` | vitals dashboard with full `--json` / `--html` output | offline |
 | `rw many` | count features / fixes / chores + breakdown | offline |
 | `rw blame` | attribution by contributor | offline |
 | `rw branch` | which branches contributed | offline |
 | `rw new` | list the new user-facing features | semantic |
 | `rw notes <target>` | write a review/release note | semantic |
 | `rw market --product <id>` | a marketing content pack in the product's voice | semantic |
-| `rw align --product <id>` | cross-port parity — matcher, HTML matrix, drafted issues, `--confirm` loop | semantic |
+| `rw align --product <id>` | cross-port parity — matcher, HTML matrix (`--html`), drafted issues, `--confirm` loop | semantic |
 | `rw help [topic]` | the built-in guide | — |
 
-Global flags on every command: `--repo`, `--base`, `--head`, `--json` (emit the
-raw `change_report.json` instead of the formatted view — works offline on any
-command, including the semantic ones), and `--html` (render the same view to a
-single self-contained, offline HTML file — see §6).
+Global flags on every subcommand: `--repo`, `--base`, `--head`, `--json` (emit
+the raw `change_report.json` instead of the formatted view — works offline on
+any command, including the semantic ones), and `--html` (render the same view
+to a single self-contained, offline HTML file — see §6). On the bare root
+`rw` (no subcommand), only `--repo` / `--base` / `--head` apply; use
+`rw vitals` for the JSON / HTML versions.
 
 ### `rw align`
 
@@ -174,8 +183,8 @@ rw align --a ./ios --b ./android               # both sides explicit
 
 # Rendering modes:
 rw align --product ledgerly                    # human-readable parity read (default)
-rw align --product ledgerly --matrix --open-matrix    # filterable HTML page in the browser
-rw align --product ledgerly --emit-json        # raw AlignReport JSON
+rw align --product ledgerly --html --open      # filterable HTML page in the browser
+rw align --product ledgerly --json             # raw AlignReport JSON
 rw align --product ledgerly --ledger-only      # skip the matcher; ledgers only (offline, key-free)
 
 # Issue formats (tracker-flavored wrappers around the markdown source):
@@ -206,17 +215,23 @@ APNs/FCM, iCloud/Drive, WidgetKit/Glance, SwiftUI/Compose, Core Data/Room,
 Combine/Flow, TestFlight/Play Internal Testing) ships with `rw`. Your
 `[[product.parity.equivalent]]` entries extend it.
 
-#### The parity matrix (`--matrix`)
+#### The parity matrix (`--html`)
 
-`--matrix` renders the report as a single self-contained, offline HTML
-file — same aesthetic as the other `rw` HTML output. Two-column layout
+`--html` on `rw align` renders the report as a single self-contained, offline
+HTML file — same aesthetic as the other `rw` HTML output. Two-column layout
 (side A on the left, side B on the right), each feature carrying its
 status chip and confidence pill. Filter chips at the top let you focus on
 just gaps, just ambiguous, etc. Drafted issues appear below the matrix
 with copy buttons.
 
-`--matrix-out <path>` overrides the default `.rw/align-<a>-<b>.html`;
-`--open-matrix` launches it in the browser after writing.
+`--html-out <path>` overrides the default `.rw/align-<a>-<b>.html`;
+`--open` launches it in the browser after writing.
+
+> The older names `--matrix`, `--matrix-out`, `--open-matrix`, `--page`, and
+> `--emit-json` still work as aliases for one release — they pre-date the
+> v0.3 split that gave the root command its own narrower flag set so
+> `--html` / `--json` could land on `align`. Prefer `--html` / `--json`
+> going forward.
 
 #### Confirming equivalences (`--confirm <match-id>`)
 
@@ -234,13 +249,6 @@ on tracker-flavored wrappers without any API call: `markdown` (default),
 `linear` (h1 title + `Labels:` line), `github` (`Title:`/`Labels:` prefixes
 for `gh issue create` piping), `jira` (wiki markup — `h2.`, `*bold*`,
 `{{code}}`, `*` bullets).
-
-> **Why `--matrix` instead of `--html`, and `--emit-json` instead of `--json`?**
-> The root `rw` command already has `--html` and `--json` flags (for the
-> vitals report); when a subcommand and the parent share a long flag name,
-> swift-argument-parser resolves the parent's first. `--matrix` / `--emit-json`
-> sidestep the collision and read clearly. `--page` is also accepted as a
-> `--matrix` alias.
 
 Configure a port pair in `testthese.toml` (see `testthese.toml.example`):
 
@@ -325,17 +333,21 @@ manifest with a baked-in offline fallback; `--refresh-limits` forces a refetch.
 
 ## 6. HTML output
 
-Every command takes `--html`, which renders the same report to a **single
+Every subcommand takes `--html`, which renders the same report to a **single
 self-contained HTML file** — inline CSS/JS, no CDN, no server, no extra model
 calls beyond what the command already made. The aesthetic is deliberately
 minimal — Verdana, narrow column, navy links, no chrome — readable and
 copy-friendly, not a dashboard.
 
 ```sh
-rw --html                                    # vitals as an HTML page
+rw vitals --html                             # vitals as an HTML page
 rw market --product ledgerly --html --open   # store-listing proof sheet in your browser
 rw notes --asc-update --product ledgerly --html
+rw align --product ledgerly --html --open    # parity matrix in your browser
 ```
+
+> Bare `rw` (no subcommand) only prints the formatted vitals dashboard as
+> plain text. For the HTML or JSON versions of vitals, use `rw vitals`.
 
 | Flag | Meaning |
 |---|---|
@@ -349,7 +361,7 @@ is shareable, commit-able, re-openable offline, and needs no running process.
 
 **Per-command views.**
 
-- **`rw --html`** — the vitals dashboard: counts, hotspots, risk flags.
+- **`rw vitals --html`** — the vitals dashboard: counts, hotspots, risk flags.
 - **`rw many --html`** — counts + by-declared-type breakdown.
 - **`rw blame --html`** — attribution by commit share.
 - **`rw branch --html`** — branches that contributed to the change set.
@@ -513,7 +525,7 @@ rw --repo ~/code/mogwar --base release/2.0 --head feature/onboarding
 
 **Feed the structured report to another tool:**
 ```sh
-rw --json > report.json
+rw vitals --json > report.json
 ```
 
 **Preview the marketing pack as a store-listing proof sheet, in your browser:**

@@ -4,9 +4,11 @@ import RecapCore
 import SemanticKit
 
 /// Root command. With no subcommand, `rw` itself prints the vitals dashboard
-/// (PRD §6/§7). Vitals lives on the root rather than as a `defaultSubcommand`
-/// because swift-argument-parser doesn't reliably route top-level options to a
-/// default subcommand — the root command owns the default behavior directly.
+/// (PRD §6/§7) as plain text. The JSON and HTML output paths live on the
+/// dedicated `vitals` subcommand instead, so the root doesn't have to declare
+/// `--json` / `--html` — declaring them here would shadow the same-named
+/// flags on subcommands like `align`, and swift-argument-parser would resolve
+/// the parent first.
 @main
 struct RW: ParsableCommand {
     static let configuration = CommandConfiguration(
@@ -14,8 +16,26 @@ struct RW: ParsableCommand {
         abstract: "recap-wins — see what your branch introduced, offline and instant.",
         discussion: "Run `rw help` for the full guide, or `rw help <topic>` "
             + "(concepts, commands, notes, providers, skill, config).",
-        version: "0.2.1",
-        subcommands: [New.self, Notes.self, Market.self, Many.self, Blame.self, Branch.self, Align.self, Help.self]
+        version: "0.3.0",
+        subcommands: [Vitals.self, New.self, Notes.self, Market.self, Many.self, Blame.self, Branch.self, Align.self, Help.self]
+    )
+
+    @OptionGroup var range: GitRangeOptions
+
+    func run() throws {
+        let report = try range.buildReport()
+        print(Render.vitals(report))
+    }
+}
+
+/// `rw vitals` — the one-screen dashboard (PRD §6/§7) with the full output
+/// flag set. Bare `rw` prints the same thing as plain text; this subcommand
+/// exists so users can ask for `--json` or `--html` output without those
+/// flags living on the root and shadowing every subcommand's same-named
+/// flags. Plain-text `rw vitals` matches plain-text `rw`.
+struct Vitals: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        abstract: "Print the vitals dashboard (the same view as bare `rw`)."
     )
 
     @OptionGroup var options: ChangeSetOptions

@@ -14,6 +14,24 @@ HTML there are generated from the same prose at release time
 
 ---
 
+## [v0.3.0](docs/changelogs/v0.3.0.html) — 2026-06-27
+
+### Added
+
+- **`rw vitals`** — explicit subcommand for the vitals dashboard with the full output flag set. Use `rw vitals --json` or `rw vitals --html` when you want JSON or HTML output of the one-screen change-set view; bare `rw` still prints the formatted dashboard exactly as before.
+
+### Changed
+
+- **`--html` and `--json` now work on every subcommand, including `rw align`.** Previously the root `rw` command declared these long-name flags, and swift-argument-parser resolves parent-level names before child ones — so `rw align --html` silently routed to the root and never rendered the parity matrix. The root no longer declares those flags, and each subcommand owns them directly. The HTML matrix you've been reaching for with `rw align --matrix` is now `rw align --html`, matching every other command in the toolkit.
+- **`rw align` legacy flag names kept as deprecated aliases for one release.** `--matrix`, `--matrix-out`, `--open-matrix`, `--page`, and `--emit-json` continue to work, but `--html`, `--html-out`, `--open`, and `--json` are the documented names going forward. The legacy aliases will be removed in v0.4.
+- **Documentation aligned with the new flag surface.** README, GUIDE, and the in-terminal `rw help` text now show `rw align --html --open` and `rw vitals --json` as the canonical examples. The earlier "why `--matrix` instead of `--html`" explainer is gone — the answer is now "it's `--html`."
+
+### Breaking
+
+- **`rw --json` and `rw --html` no longer work on the bare root command.** Use `rw vitals --json` and `rw vitals --html` instead. Plain-text `rw` (no flags) is unchanged. Existing scripts that piped `rw --json > report.json` need `rw vitals --json > report.json`.
+
+---
+
 ## [v0.2.1](docs/changelogs/v0.2.1.html) — 2026-06-27
 
 ### Added

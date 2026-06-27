@@ -2,9 +2,13 @@ import ArgumentParser
 import Foundation
 import RecapCore
 
-/// Flags shared across every command (PRD §6, FRD §9.1): `--base`, `--head`,
-/// `--json`, `--html`, `--open`, and the repository path.
-struct ChangeSetOptions: ParsableArguments {
+/// Git-range inputs (`--base`, `--head`, `--repo`). Kept separate from the
+/// output flags below so the root `rw` command can mount these without also
+/// mounting `--html` / `--json` — if it did, swift-argument-parser would
+/// resolve those parent-level names first when subcommands like `align`
+/// declare the same long name, and the subcommand's flag would silently
+/// never fire.
+struct GitRangeOptions: ParsableArguments {
     @Option(name: .long, help: "Base ref to diff against. Default: main.")
     var base: String = "main"
 
@@ -14,6 +18,19 @@ struct ChangeSetOptions: ParsableArguments {
     @Option(name: .long, help: "Path to the git repository. Default: current directory.")
     var repo: String = FileManager.default.currentDirectoryPath
 
+    /// Build the change report for the requested change set.
+    func buildReport() throws -> ChangeReport {
+        let git = Git(repositoryPath: repo)
+        let builder = ChangeReportBuilder(git: git)
+        return try builder.build(base: base, head: head)
+    }
+}
+
+/// Output flags (`--json`, `--html`, `--html-out`, `--open`) used by every
+/// subcommand that produces a change-set report. Lives separately from
+/// `GitRangeOptions` so the root command can take the range inputs without
+/// inheriting these names — see `GitRangeOptions` for why that matters.
+struct OutputOptions: ParsableArguments {
     @Flag(name: .long, help: "Emit the raw change_report.json instead of the formatted view.")
     var json: Bool = false
 
@@ -35,13 +52,25 @@ struct ChangeSetOptions: ParsableArguments {
 
     /// True if the user wants HTML output (either flag set, or a path given).
     var wantsHTML: Bool { html || htmlOut != nil }
+}
 
-    /// Build the change report for the requested change set.
-    func buildReport() throws -> ChangeReport {
-        let git = Git(repositoryPath: repo)
-        let builder = ChangeReportBuilder(git: git)
-        return try builder.build(base: base, head: head)
-    }
+/// The full per-subcommand flag set: git range inputs plus output flags.
+/// Subcommands use this directly; the root command uses only `GitRangeOptions`
+/// (with a dedicated `Vitals` subcommand for the JSON / HTML paths).
+struct ChangeSetOptions: ParsableArguments {
+    @OptionGroup var range: GitRangeOptions
+    @OptionGroup var output: OutputOptions
+
+    var base: String { range.base }
+    var head: String { range.head }
+    var repo: String { range.repo }
+    var json: Bool { output.json }
+    var html: Bool { output.html }
+    var htmlOut: String? { output.htmlOut }
+    var open: Bool { output.open }
+    var wantsHTML: Bool { output.wantsHTML }
+
+    func buildReport() throws -> ChangeReport { try range.buildReport() }
 }
 
 /// Print a report as raw JSON to stdout. Shared by every command's `--json` path.
