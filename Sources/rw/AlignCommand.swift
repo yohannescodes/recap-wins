@@ -18,6 +18,12 @@ struct AlignOptions: ParsableArguments {
     @Flag(name: .customLong("emit-json"), help: "Emit the raw AlignReport JSON instead of the formatted view.")
     var emitJSON: Bool = false
 
+    /// Skip the semantic match and emit only the two ledgers (the slice-1
+    /// behavior). Useful when you want a deterministic, offline, key-free
+    /// look at what each side claims to have, no model in the loop.
+    @Flag(name: .customLong("ledger-only"), help: "Skip the matcher; emit only the per-port ledgers.")
+    var ledgerOnly: Bool = false
+
     @Option(name: .long, help: "Product id with a configured port pair (testthese.toml).")
     var product: String?
 
@@ -46,6 +52,9 @@ struct AlignOptions: ParsableArguments {
             valueName: "ref"))
     var since: String?
 
+    @Option(name: .long, help: "Backend: anthropic (API), skill (key-free, emits envelope), gemini.")
+    var provider: String?
+
     @Option(name: .long, help: "Path to read testthese.toml from. Default: current directory.")
     var configRepo: String = FileManager.default.currentDirectoryPath
 }
@@ -53,9 +62,9 @@ struct AlignOptions: ParsableArguments {
 /// `rw align` — compare two ports of the same product and report parity (FRD).
 ///
 /// Unlike every other `rw` command, `align` reads TWO repos with no shared
-/// git history. Slice 1 (this PR) builds a deterministic ledger of each
-/// side's feature claims and emits the structured report; the semantic
-/// match between them lands in slice 2.
+/// git history. Slice 1 built the deterministic ledger half; slice 2 (this
+/// PR) adds the semantic matcher and tracker-agnostic issue drafts; slice 3
+/// will add the HTML parity matrix and the curated-map confirmation loop.
 struct Align: ParsableCommand {
     static let configuration = CommandConfiguration(
         abstract: "Compare two ports of the same product and report parity gaps."
@@ -87,30 +96,71 @@ struct Align: ParsableCommand {
         let pair = try resolvePortPair()
         let baseline = options.since ?? pair.since
 
+        let config = try Config.load(fromRepo: options.configRepo)
+        let profile: ProductProfile? = options.product.flatMap { config.product($0) }
+
         let ledgerA = try buildLedger(port: pair.a, base: options.baseA, since: baseline)
         let ledgerB = try buildLedger(port: pair.b, base: options.baseB, since: baseline)
 
-        let report = AlignReport(
-            product: options.product,
-            portA: ledgerA,
-            portB: ledgerB,
-            since: baseline,
-            features: [],
-            summary: AlignSummary(),
-            suggestedIssues: [],
-            generatedBy: "",
-            disclaimer: AlignReport.standardDisclaimer
-        )
+        let equivalences = EquivalenceTable.merged(
+            with: profile?.parityEquivalent ?? [])
 
-        if options.emitJSON {
-            print(try report.jsonString())
+        // Ledger-only mode: deterministic, key-free, no model call.
+        if options.ledgerOnly {
+            let report = AlignReport(
+                product: options.product,
+                portA: ledgerA, portB: ledgerB, since: baseline,
+                features: [], summary: AlignSummary(), suggestedIssues: [],
+                generatedBy: "ledger-only",
+                disclaimer: AlignReport.standardDisclaimer)
+            try emit(report: report)
             return
         }
-        // Slice 1: the matcher isn't built yet. Tell the user honestly rather
-        // than printing a misleading "0 gaps" view (FRD §11 "False confidence
-        // is the cardinal risk"). They can still pipe --json to see the
-        // ledgers themselves.
-        print(slice1Notice(report: report))
+
+        let provider = try resolveProvider(flag: options.provider, config: config)
+
+        // Skill mode: hand the envelope to the host agent and exit. No model
+        // call from rw, no API key required.
+        if provider == .skill {
+            let envelope = SkillEnvelope.forAlign(
+                ledgerA: ledgerA, ledgerB: ledgerB,
+                equivalences: equivalences,
+                product: profile, productId: options.product,
+                since: baseline)
+            print(try envelope.jsonString())
+            return
+        }
+
+        // API providers: run the matcher.
+        let engine = try makeAlignEngine(config: config, provider: provider)
+        let productName = profile?.name
+        let productId = options.product
+        try runAsync {
+            let result = try await engine.alignFeatures(
+                ledgerA: ledgerA, ledgerB: ledgerB,
+                equivalences: equivalences, productName: productName)
+            let report = AlignReport(
+                product: productId,
+                portA: ledgerA, portB: ledgerB,
+                since: baseline,
+                features: result.features,
+                summary: AlignSummary.from(result.features),
+                suggestedIssues: result.issues,
+                generatedBy: provider.rawValue,
+                disclaimer: AlignReport.standardDisclaimer)
+            try emit(report: report)
+        }
+    }
+
+    // MARK: - Emit
+
+    /// Print the report in whichever shape the user asked for.
+    private func emit(report: AlignReport) throws {
+        if options.emitJSON {
+            print(try report.jsonString())
+        } else {
+            print(Render.alignReport(report))
+        }
     }
 
     // MARK: - Port-pair resolution
@@ -158,29 +208,16 @@ struct Align: ParsableCommand {
         }
     }
 
-    // MARK: - Slice 1 notice
-
-    /// Honest "match not yet implemented" text — never asserts parity.
-    private func slice1Notice(report: AlignReport) -> String {
-        var lines: [String] = []
-        lines.append(Style.bold("rw align") + Style.dim("  preview — match arrives in slice 2"))
-        lines.append("")
-        lines.append("  " + Style.dim("side a (\(report.portA.portName)): ")
-            + "\(report.portA.features.count) feature claims @ "
-            + String(report.portA.headSHA.prefix(7)))
-        lines.append("  " + Style.dim("side b (\(report.portB.portName)): ")
-            + "\(report.portB.features.count) feature claims @ "
-            + String(report.portB.headSHA.prefix(7)))
-        if let since = report.since {
-            lines.append("  " + Style.dim("since: ") + since)
+    /// Build a SemanticEngine for the API providers, mapping common config
+    /// errors to clean ValidationError exits rather than stack traces.
+    private func makeAlignEngine(config: Config, provider: Provider) throws -> SemanticEngine {
+        do {
+            let client = try ModelConfig.makeClient(for: provider, config: config)
+            return SemanticEngine(client: client)
+        } catch let error as ModelError {
+            throw ValidationError(error.description)
+        } catch let error as ProviderUnavailable {
+            throw ValidationError(error.description)
         }
-        lines.append("")
-        lines.append("  " + Style.yellow("Slice 1 of 3: ledger extraction only."))
-        lines.append("  " + Style.dim("The semantic matcher (paired / equivalent / gap / ambiguous)"))
-        lines.append("  " + Style.dim("ships in the next PR. Run with --emit-json to see the ledgers."))
-        lines.append("")
-        lines.append("  " + Style.dim(report.disclaimer))
-        lines.append("")
-        return lines.joined(separator: "\n")
     }
 }

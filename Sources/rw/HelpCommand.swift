@@ -74,7 +74,7 @@ enum HelpText {
           \(cmd("rw help commands"))   every command, with examples
           \(cmd("rw help notes"))      the notes targets and char caps
           \(cmd("rw help market"))     the marketing content pack
-          \(cmd("rw help align"))      cross-port parity \(dim("(slice 1 preview)"))
+          \(cmd("rw help align"))      cross-port parity \(dim("(preview)"))
           \(cmd("rw help providers"))  anthropic vs skill vs gemini
           \(cmd("rw help skill"))      use rw inside an agent with no API key
           \(cmd("rw help config"))     testthese.toml: base, model, products
@@ -149,11 +149,11 @@ enum HelpText {
           A pack of announcement pieces in the product's voice. See \(cmd("rw help market")).
           \(cmd("rw market --product ledgerly"))   \(cmd("rw market --product ledgerly --pieces tweet,post"))
 
-        \(h("rw align --product <id>")) \(dim("— cross-port parity")) \(dim("· slice 1 preview · offline"))
-          Compares two native ports of the same product. Slice 1 ships the
-          deterministic ledger half; the matcher arrives in slice 2. See
-          \(cmd("rw help align")) for the full story.
-          \(cmd("rw align --product ledgerly --emit-json"))
+        \(h("rw align --product <id>")) \(dim("— cross-port parity")) \(dim("· preview · semantic"))
+          Compares two native ports of the same product, with a semantic
+          matcher + tracker-agnostic issue drafts. HTML matrix arrives in
+          slice 3. See \(cmd("rw help align")) for the full story.
+          \(cmd("rw align --product ledgerly"))   \(cmd("rw align --product ledgerly --provider skill"))
 
         \(h("GLOBAL"))
           \(cmd("--repo <path>"))  \(cmd("--base <ref>"))  \(cmd("--head <ref>"))  \(cmd("--json"))
@@ -244,27 +244,47 @@ enum HelpText {
 
     static var align: String {
         """
-        \(h("rw align — cross-port parity")) \(dim("(slice 1 preview)"))
+        \(h("rw align — cross-port parity")) \(dim("(preview — HTML matrix in slice 3)"))
 
         \(cmd("rw align")) compares two native ports of the same product
         (e.g. Ledgerly iOS in Swift and Ledgerly Android in Kotlin) and
         surfaces parity gaps. Unlike every other rw command, it reads TWO
         repos with no shared git history — there's nothing for git diff to
-        compare. It builds a FEATURE LEDGER for each side instead, then
-        hands both ledgers to the semantic matcher.
+        compare. It builds a FEATURE LEDGER for each side, then runs a
+        semantic matcher that classifies each pairing and drafts
+        tracker-agnostic issues for confirmed gaps.
 
         \(h("CURRENT STATUS"))
-          \(dim("slice 1"))  ledger extraction (this release) — both sides build,
-                     emit AlignReport JSON. No match yet.
-          \(dim("slice 2"))  semantic matcher (paired / equivalent / gap /
-                     ambiguous) + tracker-agnostic issue drafts.
-          \(dim("slice 3"))  HTML parity matrix view + confirmation loop.
+          \(dim("slice 1 ✓"))  per-port feature-ledger extraction (deterministic).
+          \(dim("slice 2 ✓"))  semantic matcher + built-in Apple↔Google equivalence
+                     table + tracker-agnostic issue drafts. \(dim("(this release)"))
+          \(dim("slice 3"))    HTML parity matrix + curated-map confirmation loop.
 
         \(h("USAGE"))
-          \(cmd("rw align --product ledgerly"))               configured port pair
-          \(cmd("rw align --with ../ledgerly-android"))       current repo is side A
-          \(cmd("rw align --a ./ios --b ./android"))          both sides explicit
-          \(cmd("rw align --product ledgerly --emit-json"))   the raw AlignReport
+          \(cmd("rw align --product ledgerly"))                configured port pair
+          \(cmd("rw align --with ../ledgerly-android"))        current repo is side A
+          \(cmd("rw align --a ./ios --b ./android"))           both sides explicit
+          \(cmd("rw align --product ledgerly --emit-json"))    raw AlignReport JSON
+          \(cmd("rw align --product ledgerly --ledger-only"))  skip the matcher; ledgers only
+          \(cmd("rw align --product ledgerly --provider skill")) key-free; agent matches
+
+        \(h("CLASSIFICATIONS"))
+          \(cmd("paired"))      same capability on both sides; real parity.
+          \(cmd("equivalent"))  platform-native substitutes (Apple Pay ↔ Google Pay).
+                       Parity ACHIEVED, not a gap.
+          \(cmd("gap_on_a"))    present on B only; real missing work on A.
+          \(cmd("gap_on_b"))    present on A only; real missing work on B.
+          \(cmd("ambiguous"))   matcher isn't sure; surfaced for human confirmation.
+                       NEVER auto-classified as a gap.
+
+        \(h("BUILT-IN EQUIVALENCE TABLE"))
+          The matcher ships with the canonical Apple↔Google pairs:
+          Apple Pay / Google Pay, Sign in with Apple / Google Sign-In,
+          StoreKit / Play Billing, Keychain / Keystore, HealthKit / Health
+          Connect, APNs / FCM, iCloud / Drive, WidgetKit / Glance, SwiftUI /
+          Compose, Core Data / Room, Combine / Flow, TestFlight / Play
+          Internal Testing. Your \(cmd("[[product.parity.equivalent]]")) entries
+          extend it per product.
 
         \(h("WHY --emit-json AND NOT --json"))
           The root \(cmd("rw")) command already has a --json flag for the vitals
