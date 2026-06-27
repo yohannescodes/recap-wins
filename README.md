@@ -136,7 +136,13 @@ Claude through a plan, this is the model work at no extra cost:
 ```sh
 rw new   --provider skill            # emits a JSON envelope for the host agent
 rw notes --asc-update --product ledgerly --provider skill
+rw notes --what-new   --product ledgerly --provider skill | pbcopy   # one-shot copy
 ```
+
+The envelope goes to stdout, so pipe it into `pbcopy` (macOS) / `xclip -sel clip`
+(Linux) / `clip` (Windows) to skip the select-and-copy dance. `--html` is not
+available in skill mode — the host agent renders, not `rw`; for an HTML artifact
+run without `--provider skill`.
 
 **API mode.** Provide a key via the provider's environment variable —
 `ANTHROPIC_API_KEY` or `GEMINI_API_KEY` (preferred) — or `api_key` in
