@@ -148,7 +148,7 @@ rw --json             # the same data as raw change_report.json
 | `rw new` | list the new user-facing features | semantic |
 | `rw notes <target>` | write a review/release note | semantic |
 | `rw market --product <id>` | a marketing content pack in the product's voice | semantic |
-| `rw align --product <id>` | cross-port parity (slice 1 preview — see "rw align" below) | offline (slice 1) |
+| `rw align --product <id>` | cross-port parity — matcher + drafted issues (preview) | semantic |
 | `rw help [topic]` | the built-in guide | — |
 
 Global flags on every command: `--repo`, `--base`, `--head`, `--json` (emit the
@@ -156,20 +156,18 @@ raw `change_report.json` instead of the formatted view — works offline on any
 command, including the semantic ones), and `--html` (render the same view to a
 single self-contained, offline HTML file — see §6).
 
-### `rw align` (slice 1 preview)
+### `rw align` (preview — HTML matrix in slice 3)
 
 `rw align` compares two native ports of the same product (e.g. Ledgerly iOS
 in Swift and Ledgerly Android in Kotlin) and surfaces parity gaps. Unlike
 every other command, it reads **two repos with no shared git history** — so
 there's nothing for `git diff` to compare. Instead it builds a
-**feature ledger** for each side from conventional-commit feats and the
-inferred-feature heuristic, then (in slice 2) hands both ledgers to the
-semantic matcher.
+**feature ledger** for each side, then runs a semantic matcher that
+classifies each feature pairing and drafts tracker-agnostic issues for
+confirmed gaps.
 
-Slice 1 (this release) ships the deterministic half: it builds both ledgers
-and emits the structured `AlignReport` JSON. The semantic match
-(paired / equivalent / gap / ambiguous) and the issue-draft generation
-arrive in slice 2; the HTML parity matrix and confirmation loop in slice 3.
+Status: **slices 1 and 2 are in.** Slice 3 (the filterable HTML parity
+matrix) is the next step.
 
 ```sh
 # Three input modes:
@@ -177,9 +175,32 @@ rw align --product ledgerly                    # uses [product.ports] from confi
 rw align --with ../ledgerly-android            # current repo is side A
 rw align --a ./ios --b ./android               # both sides explicit
 
-rw align --product ledgerly --emit-json        # the AlignReport, raw
+# Three rendering modes:
+rw align --product ledgerly                    # human-readable parity read (default)
+rw align --product ledgerly --emit-json        # raw AlignReport JSON
+rw align --product ledgerly --ledger-only      # skip the matcher; ledgers only (offline, key-free)
+
+# Plus:
 rw align --product ledgerly --since v1.0       # baseline override
+rw align --product ledgerly --provider skill   # key-free, host agent matches
 ```
+
+The matcher classifies each feature as one of:
+
+- **`paired`** — same capability on both sides; real parity.
+- **`equivalent`** — different but platform-native substitutes
+  (Apple Pay ↔ Google Pay). Parity *achieved*, not a gap.
+- **`gap_on_a`** / **`gap_on_b`** — present on one side only; real missing
+  work, with a drafted issue ready to paste.
+- **`ambiguous`** — the matcher isn't sure; surfaced for human confirmation,
+  **never auto-classified as a gap**. When in doubt, ambiguous beats a
+  confident wrong match.
+
+A **built-in Apple↔Google equivalence table** (Apple Pay/Google Pay,
+StoreKit/Play Billing, Keychain/Keystore, HealthKit/Health Connect,
+APNs/FCM, iCloud/Drive, WidgetKit/Glance, SwiftUI/Compose, Core Data/Room,
+Combine/Flow, TestFlight/Play Internal Testing) ships with `rw`. Your
+`[[product.parity.equivalent]]` entries extend it.
 
 > **Why `--emit-json` and not `--json`?** The root `rw` command already has
 > a `--json` flag (for the vitals report); when subcommand and parent share

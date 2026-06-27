@@ -213,6 +213,133 @@ public enum PromptBuilder {
         )
     }
 
+    /// System + user prompt for `rw align`'s parity matcher (FRD §6/§7).
+    ///
+    /// The model receives the two deterministic ledgers and the merged
+    /// equivalence table (built-in Apple↔Google pairs + per-product curated
+    /// entries), and returns a JSON document classifying each feature into
+    /// paired / equivalent / gap_on_a / gap_on_b / ambiguous, with a
+    /// confidence score. Issue drafts for confirmed gaps come back in the
+    /// same response so we make ONE model call per align run, not two.
+    ///
+    /// The prompt's central rule is the FRD's anti-overclaim guard
+    /// (§3, §11): never assert authoritative parity, always surface
+    /// confidence, prefer `ambiguous` over a confidently-wrong match.
+    public static func alignMatch(
+        ledgerA: LedgerSnapshot,
+        ledgerB: LedgerSnapshot,
+        equivalences: [ParityEntry],
+        productName: String?
+    ) -> ModelRequest {
+        var system = """
+        You are the parity matcher for `rw align`. You compare TWO ports of \
+        the same product (different repos, different languages, no shared \
+        git history) and classify each feature as one of:
+        - "paired"       — same capability on both sides; real parity.
+        - "equivalent"   — different but platform-native substitutes \
+        (Apple Pay ↔ Google Pay). Parity ACHIEVED, not a gap.
+        - "gap_on_a"     — present on side B only; real missing work on side A.
+        - "gap_on_b"     — present on side A only; real missing work on side B.
+        - "ambiguous"    — you aren't sure; surface for human confirmation, \
+        NEVER auto-classify as a gap when uncertain.
+
+        Hard rules:
+        1. NEVER assert authoritative parity. You are an assistant, not an \
+        oracle. Always surface a confidence score (0.0–1.0).
+        2. When in doubt, prefer "ambiguous". A confidently-wrong match is \
+        worse than an admitted unknown — it makes the user relax when they \
+        shouldn't.
+        3. Respect the equivalence table provided. Pairs listed there are \
+        platform-native substitutes — classify them as "equivalent" with \
+        high confidence and reference the table in `equivalenceNote`.
+        4. Weight DECLARED feature claims (origin: declared) higher than \
+        INFERRED ones (origin: inferred). An inferred feature paired with \
+        anything leans toward "ambiguous" unless the equivalence table or \
+        the titles obviously match.
+        5. For confirmed "gap_on_a" or "gap_on_b" items (NOT ambiguous, NOT \
+        equivalent), generate an `IssueDraft` so the user can paste it into \
+        their tracker. The draft body should be tracker-agnostic Markdown \
+        explaining what the other side has and what the missing side needs \
+        to ship to reach parity.
+        6. For "paired" and "equivalent" items, do NOT generate issue drafts.
+
+        Return a single JSON object with this exact shape, no preamble:
+        {
+          "features": [
+            {
+              "id": "string (unique within this response, e.g. m1, m2)",
+              "status": "paired" | "equivalent" | "gap_on_a" | "gap_on_b" | "ambiguous",
+              "descriptionA": "string or null (the side-A feature title, if present)",
+              "descriptionB": "string or null (the side-B feature title, if present)",
+              "equivalenceNote": "string or null (why these were treated as equivalent)",
+              "confidence": 0.0 to 1.0
+            }
+          ],
+          "issues": [
+            {
+              "side": "string (port name where work is needed, e.g. \\"ios\\" or \\"android\\")",
+              "title": "string (short issue title)",
+              "body": "string (markdown body explaining the gap and the work)",
+              "sourceFeature": "string (the title of the feature on the ahead side that motivated this)"
+            }
+          ]
+        }
+        """
+        if let productName {
+            system += "\n\nThe product is \(productName). Use this when wording issue drafts."
+        }
+
+        let user = buildAlignUserBlock(
+            ledgerA: ledgerA, ledgerB: ledgerB, equivalences: equivalences)
+
+        return ModelRequest(
+            system: system,
+            messages: [ChatMessage(role: .user, text: user)],
+            // Generous: long histories with dozens of features can produce a
+            // sizeable JSON. Cap below a reasonable limit so we don't blow
+            // through context on pathological repos.
+            maxTokens: 4000,
+            temperature: 0.2
+        )
+    }
+
+    /// Build the user-message block the matcher reasons over: side A's
+    /// features, side B's features, and the merged equivalence table.
+    public static func buildAlignUserBlock(
+        ledgerA: LedgerSnapshot,
+        ledgerB: LedgerSnapshot,
+        equivalences: [ParityEntry]
+    ) -> String {
+        var lines: [String] = []
+        lines.append("PORTS")
+        lines.append("- side A: name=\(ledgerA.portName) ref=\(ledgerA.ref) head=\(ledgerA.headSHA.prefix(7))")
+        lines.append("- side B: name=\(ledgerB.portName) ref=\(ledgerB.ref) head=\(ledgerB.headSHA.prefix(7))")
+        if let since = ledgerA.since ?? ledgerB.since {
+            lines.append("- since baseline: \(since)")
+        }
+        lines.append("")
+        lines.append("EQUIVALENCE TABLE (platform-native substitutes; treat matches here as \"equivalent\", not gaps)")
+        if equivalences.isEmpty {
+            lines.append("- (none configured; rely on the system prompt's general guidance)")
+        } else {
+            for entry in equivalences {
+                let note = entry.note.map { " — \($0)" } ?? ""
+                lines.append("- A: \(entry.a)  ↔  B: \(entry.b)\(note)")
+            }
+        }
+        lines.append("")
+        lines.append("SIDE A FEATURES (\(ledgerA.features.count))")
+        for f in ledgerA.features {
+            lines.append("- [\(f.origin.rawValue)] \(f.title)" + (f.scope.map { " (scope: \($0))" } ?? ""))
+        }
+        lines.append("")
+        lines.append("SIDE B FEATURES (\(ledgerB.features.count))")
+        for f in ledgerB.features {
+            lines.append("- [\(f.origin.rawValue)] \(f.title)" + (f.scope.map { " (scope: \($0))" } ?? ""))
+        }
+        return lines.joined(separator: "\n")
+    }
+
     /// Per-piece channel/format instruction.
     private static func pieceInstruction(_ piece: MarketPiece) -> String {
         switch piece {
