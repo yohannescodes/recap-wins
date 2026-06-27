@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v0.3.0 — rw</title>
+<style>
+html { background: #ffffff; color: #000000; }
+body { margin: 0; }
+main {
+  max-width: 38em;
+  margin: 2.5em auto;
+  padding: 0 1.25em;
+  font-family: Verdana, Geneva, sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+}
+h1 { font-size: 1.4em; margin: 0 0 0.1em 0; }
+h2 { font-size: 1.05em; margin: 1.6em 0 0.4em 0; }
+p { margin: 0.6em 0; }
+ul { margin: 0.5em 0 0.5em 1.2em; padding: 0; }
+li { margin: 0.15em 0; }
+a { color: #00008b; text-decoration: underline; }
+.subtitle { margin-top: 0; }
+.muted { color: #6b6b6b; }
+.meter { margin-bottom: 0.2em; font-size: 0.9em; }
+.meter.near { color: #a06a00; }
+.meter.over { color: #a00000; }
+.bar { height: 2px; background: #eeeeee; margin: 0 0 0.8em 0; overflow: hidden; }
+.bar .fill { height: 100%; background: #cccccc; }
+.meter.near + .bar .fill { background: #d6a000; }
+.meter.over + .bar .fill { background: #c00000; }
+.copyable { position: relative; margin: 0.4em 0 1.4em 0; }
+.copyable pre {
+  margin: 0;
+  padding: 0.6em 0.8em;
+  background: #fafafa;
+  border-left: 2px solid #eeeeee;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: Verdana, Geneva, sans-serif;
+  font-size: 0.95em;
+}
+.copyable textarea {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+button.copy {
+  float: right;
+  margin: 0 0 0.4em 0.6em;
+  font: inherit;
+  font-size: 0.85em;
+  background: #ffffff;
+  color: #00008b;
+  border: 1px solid #d0d0d0;
+  padding: 0.15em 0.55em;
+  cursor: pointer;
+}
+button.copy:hover { border-color: #00008b; }
+button.copy.copied { color: #2a7a2a; border-color: #2a7a2a; }
+footer { margin-top: 2.5em; font-size: 0.85em; }
+.footnote { font-size: 0.85em; margin-top: 2em; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.95em; }
+
+/* --- align page (rw align --html) --- */
+body.align main { max-width: 64em; }
+.disclaimer {
+  background: #fff8e6; border-left: 3px solid #d6a000;
+  padding: 0.6em 0.9em; margin: 1em 0 1.2em 0; font-size: 0.95em;
+}
+.chips { margin: 0.6em 0 0.8em 0; }
+.chip {
+  display: inline-block; margin: 0 0.3em 0.3em 0;
+  padding: 0.2em 0.55em; font: inherit; font-size: 0.85em;
+  background: #ffffff; color: #000000;
+  border: 1px solid #d0d0d0; border-radius: 2px; cursor: pointer;
+}
+.chip:hover { border-color: #00008b; }
+.chip .count {
+  margin-left: 0.4em; padding: 0 0.35em; border-radius: 2px;
+  background: #f0f0f0; color: #6b6b6b; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+}
+/* Each filter-X body class hides rows not matching the active status.
+   The chip click toggles the body class. "all" shows everything. */
+body.filter-paired     .row[data-status]:not([data-status="paired"])    { display: none; }
+body.filter-equivalent .row[data-status]:not([data-status="equivalent"]){ display: none; }
+body.filter-gap_on_a   .row[data-status]:not([data-status="gap_on_a"])  { display: none; }
+body.filter-gap_on_b   .row[data-status]:not([data-status="gap_on_b"])  { display: none; }
+body.filter-ambiguous  .row[data-status]:not([data-status="ambiguous"]) { display: none; }
+/* Active chip styling tracks the body class via these matching selectors. */
+body.filter-all        .chip[data-filter="all"]        { background: #00008b; color: #ffffff; border-color: #00008b; }
+body.filter-paired     .chip[data-filter="paired"]     { background: #1a6e38; color: #ffffff; border-color: #1a6e38; }
+body.filter-equivalent .chip[data-filter="equivalent"] { background: #00008b; color: #ffffff; border-color: #00008b; }
+body.filter-gap_on_a   .chip[data-filter="gap_on_a"]   { background: #a00000; color: #ffffff; border-color: #a00000; }
+body.filter-gap_on_b   .chip[data-filter="gap_on_b"]   { background: #a00000; color: #ffffff; border-color: #a00000; }
+body.filter-ambiguous  .chip[data-filter="ambiguous"]  { background: #a06a00; color: #ffffff; border-color: #a06a00; }
+
+.matrix {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 1.4em; margin: 1em 0 1.6em 0;
+}
+@media (max-width: 48em) { .matrix { grid-template-columns: 1fr; } }
+.matrix .col h2 { margin-top: 0; }
+.row {
+  padding: 0.4em 0; border-bottom: 1px solid #f0f0f0;
+  font-size: 0.92em; line-height: 1.45;
+}
+.row.missing .text { color: #b0b0b0; font-style: italic; }
+.row .text { margin-left: 0.35em; }
+.row .note { margin-left: 0.35em; font-size: 0.9em; }
+.badge {
+  display: inline-block; padding: 0.05em 0.4em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72em; text-transform: uppercase; border-radius: 2px;
+  vertical-align: 1px;
+}
+.badge-paired     { background: #e6f4ea; color: #1a6e38; }
+.badge-equivalent { background: #e6e9ff; color: #00008b; }
+.badge-gap        { background: #ffe6e6; color: #a00000; }
+.badge-ambiguous  { background: #fff8e6; color: #a06a00; }
+.conf {
+  display: inline-block; margin-left: 0.3em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.82em; color: #6b6b6b;
+}
+.conf-high { color: #1a6e38; }
+.conf-low  { color: #a06a00; }
+h3 { font-size: 0.98em; margin: 1.2em 0 0.3em 0; }
+</style>
+</head>
+<body>
+<main>
+<h1>v0.3.0</h1>
+<p class="subtitle muted">Changelog · previous…v0.3.0</p>
+<h2>Added</h2>
+<ul>
+<li><strong><code>rw vitals</code></strong> — explicit subcommand for the vitals dashboard with the full output flag set. Use <code>rw vitals --json</code> or <code>rw vitals --html</code> when you want JSON or HTML output of the one-screen change-set view; bare <code>rw</code> still prints the formatted dashboard exactly as before.</li>
+</ul>
+<h2>Changed</h2>
+<ul>
+<li><strong><code>--html</code> and <code>--json</code> now work on every subcommand, including <code>rw align</code>.</strong> Previously the root <code>rw</code> command declared these long-name flags, and swift-argument-parser resolves parent-level names before child ones — so <code>rw align --html</code> silently routed to the root and never rendered the parity matrix. The root no longer declares those flags, and each subcommand owns them directly. The HTML matrix you&#39;ve been reaching for with <code>rw align --matrix</code> is now <code>rw align --html</code>, matching every other command in the toolkit.</li>
+<li><strong><code>rw align</code> legacy flag names kept as deprecated aliases for one release.</strong> <code>--matrix</code>, <code>--matrix-out</code>, <code>--open-matrix</code>, <code>--page</code>, and <code>--emit-json</code> continue to work, but <code>--html</code>, <code>--html-out</code>, <code>--open</code>, and <code>--json</code> are the documented names going forward. The legacy aliases will be removed in v0.4.</li>
+<li><strong>Documentation aligned with the new flag surface.</strong> README, GUIDE, and the in-terminal <code>rw help</code> text now show <code>rw align --html --open</code> and <code>rw vitals --json</code> as the canonical examples. The earlier &quot;why <code>--matrix</code> instead of <code>--html</code>&quot; explainer is gone — the answer is now &quot;it&#39;s <code>--html</code>.&quot;</li>
+</ul>
+<p>### Breaking</p>
+<ul>
+<li><strong><code>rw --json</code> and <code>rw --html</code> no longer work on the bare root command.</strong> Use <code>rw vitals --json</code> and <code>rw vitals --html</code> instead. Plain-text <code>rw</code> (no flags) is unchanged. Existing scripts that piped <code>rw --json &gt; report.json</code> need <code>rw vitals --json &gt; report.json</code>.</li>
+</ul>
+<p class="muted footnote">Generated by <a href="https://novarch.lol/recap-wins">recap-wins</a> via <code>rw notes --changelog</code>.</p>
+<footer class="muted">Generated by <a href="https://novarch.lol/recap-wins">recap-wins</a>.</footer>
+</main>
+</body>
+</html>
