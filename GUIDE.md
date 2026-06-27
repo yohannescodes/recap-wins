@@ -418,6 +418,20 @@ rw new --provider skill          # prints the envelope; hand it to your agent
 rw notes --pr --provider skill
 ```
 
+The envelope is plain stdout, so pipe it straight into your clipboard instead of
+selecting it in the terminal:
+
+```sh
+rw notes --what-new --product ledgerly --provider skill | pbcopy   # macOS
+rw notes --what-new --product ledgerly --provider skill | xclip -selection clipboard   # Linux
+rw notes --what-new --product ledgerly --provider skill | clip      # Windows
+```
+
+`--html` is intentionally rejected with `--provider skill`: in skill mode the
+host agent is the model, so `rw` never sees the prose to render. For an HTML
+artifact, drop `--provider skill` and use an API provider (§7) — `--html` works
+end-to-end there.
+
 ### As an installed skill (recommended)
 
 `rw` ships a drop-in skill in the `skill/` directory. Install it once:
