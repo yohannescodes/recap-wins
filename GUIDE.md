@@ -176,19 +176,26 @@ rw new --base develop --provider skill
 Writes a note for exactly **one** target. Each has its own audience, tone, and
 character ceiling:
 
-| Flag | Destination | Voice? | Cap |
-|---|---|---|---|
-| `--pr` | PR description (technical) | no | none |
-| `--asc-reviewer` | App Store Connect → App Review (private) | no | none |
-| `--what-new` | TestFlight / Play testing notes | yes | platform |
-| `--asc-update` | App Store "What's New" | yes | 4000 |
-| `--gp-update` | Google Play release notes | yes | 500/lang |
+| Flag | Destination | Voice? | Cap | Output |
+|---|---|---|---|---|
+| `--pr` | PR description (technical) | no | none | text |
+| `--asc-reviewer` | App Store Connect → App Review (private) | no | none | text |
+| `--what-new` | TestFlight / Play testing notes | yes | platform | text |
+| `--asc-update` | App Store "What's New" | yes | 4000 | text |
+| `--gp-update` | Google Play release notes | yes | 500/lang | text |
+| `--changelog` | Release-page changelog (committed artifact) | optional | none | **HTML only** |
 
 ```sh
 rw notes --pr
 rw notes --asc-update --product ledgerly
 rw notes --gp-update  --product ledgerly --limit 300
+rw notes --changelog --version-label v0.2.0 --base v0.1.1 --head HEAD
 ```
+
+**`--changelog` is HTML-only.** It always renders a self-contained release
+page, defaults its output under `docs/changelogs/v<version>.html`, and is the
+canonical "what changed" artifact you commit per release. See [RELEASING.md](RELEASING.md)
+for the workflow. Pass `--version-label v<version>` for the page title.
 
 **Product voice.** The user-facing store targets read voice + a soft length aim
 from the product profile, so pass `--product <id>` (configure profiles in
@@ -405,6 +412,12 @@ rw market --product ledgerly --html --open
 **Render the App Store note with a live char meter against the 4000-char cap:**
 ```sh
 rw notes --asc-update --product ledgerly --html --open
+```
+
+**Generate the per-release changelog page (the canonical artifact you commit):**
+```sh
+rw notes --changelog --version-label v0.2.0 --base v0.1.1 --head HEAD
+# → docs/changelogs/v0.2.0.html
 ```
 
 ---

@@ -13,18 +13,41 @@ public enum NoteTarget: String, Sendable, CaseIterable {
     case ascUpdate
     /// Google Play "What's new" — public Android users, product voice.
     case gpUpdate
+    /// Release-page changelog — public, the canonical "what changed" artifact for
+    /// a tagged version. Always rendered as a self-contained HTML file and
+    /// committed to docs/changelogs/v<version>.html (see RELEASING.md).
+    case changelog
 
     /// True if the target's copy should be rendered in the product's voice
     /// (user-facing store copy). Internal/technical targets are voice-neutral.
+    /// Changelog uses voice when a product is given, but doesn't require one —
+    /// generic projects (like rw itself) ship changelogs without a profile.
     public var usesProductVoice: Bool {
         switch self {
         case .pr, .ascReviewer: return false
         case .whatNew, .ascUpdate, .gpUpdate: return true
+        case .changelog: return true
         }
     }
 
     /// True if a `--product` profile is required to render this target well.
-    public var requiresProduct: Bool { usesProductVoice }
+    /// Changelog is voice-aware but not voice-required — `rw` itself doesn't
+    /// have a product profile, and that's the canonical example.
+    public var requiresProduct: Bool {
+        switch self {
+        case .pr, .ascReviewer, .changelog: return false
+        case .whatNew, .ascUpdate, .gpUpdate: return true
+        }
+    }
+
+    /// True if this target is HTML-only — the committed HTML page IS the
+    /// artifact, not a preview. Today only the changelog target.
+    public var isHTMLOnly: Bool {
+        switch self {
+        case .changelog: return true
+        default: return false
+        }
+    }
 
     /// Human-readable destination name for messages.
     public var displayName: String {
@@ -34,6 +57,7 @@ public enum NoteTarget: String, Sendable, CaseIterable {
         case .whatNew: return "TestFlight / Play testing notes"
         case .ascUpdate: return "App Store \"What's New\""
         case .gpUpdate: return "Google Play release notes"
+        case .changelog: return "Changelog"
         }
     }
 }

@@ -83,11 +83,22 @@ struct Notes: ParsableCommand {
     @Flag(name: .customLong("gp-update"), help: "Google Play release notes (500/lang cap).")
     var gpUpdate: Bool = false
 
+    @Flag(name: .long, help: "Release-page changelog (HTML-only artifact; see RELEASING.md).")
+    var changelog: Bool = false
+
     @Option(name: .long, help: "Product id for voice + platform (required for store targets).")
     var product: String?
 
     @Option(name: .long, help: "Tighten the char limit below the store ceiling (never loosens past it).")
     var limit: Int?
+
+    @Option(
+        name: .customLong("version-label"),
+        help: ArgumentHelp(
+            "Version label shown as the changelog page title (e.g. v0.2.0). "
+            + "Defaults to the head ref or short SHA.",
+            valueName: "label"))
+    var versionLabel: String?
 
     @Flag(name: .long, help: "Force a refresh of the cached store-limit manifest now.")
     var refreshLimits: Bool = false
@@ -103,6 +114,7 @@ struct Notes: ParsableCommand {
         if whatNew { t.append(.whatNew) }
         if ascUpdate { t.append(.ascUpdate) }
         if gpUpdate { t.append(.gpUpdate) }
+        if changelog { t.append(.changelog) }
         return t
     }
 
@@ -110,7 +122,7 @@ struct Notes: ParsableCommand {
         let targets = selectedTargets
         guard !targets.isEmpty else {
             throw ValidationError(
-                "Pick a target: --pr, --asc-reviewer, --what-new, --asc-update, or --gp-update."
+                "Pick a target: --pr, --asc-reviewer, --what-new, --asc-update, --gp-update, or --changelog."
             )
         }
         guard targets.count == 1 else {
@@ -169,22 +181,35 @@ struct Notes: ParsableCommand {
         }
 
         let engine = try options.makeSemanticEngine(config: config, provider: selectedProvider)
-        let wantsHTML = options.wantsHTML
-        let htmlOut = options.htmlOut
+        // --changelog is HTML-only: the page IS the artifact, not a preview.
+        // It also defaults its output path under docs/changelogs/ so per-version
+        // pages end up in the canonical spot for committing.
+        let wantsHTML = options.wantsHTML || target.isHTMLOnly
+        let htmlOut = resolvedHTMLOut(target: target)
         let openInBrowser = options.open
         let repoPath = options.repo
         let range = report.range
+        let versionLabelCopy = changelogVersionLabel(report: report)
         try runAsync {
             let resolved = try await resolveLimit(
                 config: config, target: target, profile: profile,
                 userLimit: limitOption, refresh: refresh)
             let result = try await engine.note(report, target: target, product: profile, limit: resolved)
             if wantsHTML {
-                let html = HTMLRender.notes(
-                    result.text, target: target, limit: resolved,
-                    product: profile, range: range)
+                let html: String
+                let commandLabel: String
+                if target == .changelog {
+                    html = HTMLRender.changelog(
+                        result.text, version: versionLabelCopy, range: range)
+                    commandLabel = "changelog"
+                } else {
+                    html = HTMLRender.notes(
+                        result.text, target: target, limit: resolved,
+                        product: profile, range: range)
+                    commandLabel = "notes-\(target.rawValue)"
+                }
                 try writeHTMLReport(
-                    html, command: "notes-\(target.rawValue)", range: range,
+                    html, command: commandLabel, range: range,
                     repoPath: repoPath, outPath: htmlOut, open: openInBrowser)
             } else {
                 print(result.text)
@@ -193,6 +218,29 @@ struct Notes: ParsableCommand {
                 FileHandle.standardError.write(Data(("\n⚠ " + warning + "\n").utf8))
             }
         }
+    }
+
+    /// For --changelog without an explicit --html-out, default to
+    /// `docs/changelogs/<version-label>.html` so per-version pages land in the
+    /// canonical spot for committing. Other targets keep the standard default.
+    private func resolvedHTMLOut(target: NoteTarget) -> String? {
+        if let override = options.htmlOut { return override }
+        guard target == .changelog else { return nil }
+        let label = (versionLabel ?? "").trimmingCharacters(in: .whitespaces)
+        // No version label: let writeHTMLReport pick its default name (which
+        // uses the change range) under .rw/. Better than guessing a version.
+        guard !label.isEmpty else { return nil }
+        return "docs/changelogs/\(label).html"
+    }
+
+    /// The label for the changelog page title. Prefer the user's --version-label,
+    /// then the head ref name, then the short SHA — there's always something.
+    private func changelogVersionLabel(report: ChangeReport) -> String {
+        if let label = versionLabel?.trimmingCharacters(in: .whitespaces), !label.isEmpty {
+            return label
+        }
+        if report.range.head != "HEAD" { return report.range.head }
+        return String(report.range.headSHA.prefix(7))
     }
 }
 

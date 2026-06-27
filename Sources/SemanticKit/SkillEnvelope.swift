@@ -83,7 +83,18 @@ public extension SkillEnvelope {
         limit: ResolvedLimit
     ) -> SkillEnvelope {
         let req = PromptBuilder.note(report, target: target, product: product, limit: limit)
-        var instruction = "Write the \(target.displayName) for this change set, following the system prompt."
+        var instruction: String
+        if target == .changelog {
+            // Changelog is HTML-only — the host agent returns markdown prose;
+            // rw still wraps it in the changelog HTML page on the way out.
+            // The agent should follow the Added/Changed/Fixed structure exactly.
+            instruction = "Write the Added/Changed/Fixed changelog entry for this change set, "
+                + "following the system prompt's structure. Output only the markdown sections "
+                + "(## Added / ## Changed / ## Fixed). rw will wrap the result in a self-contained "
+                + "HTML release page; do not write HTML yourself."
+        } else {
+            instruction = "Write the \(target.displayName) for this change set, following the system prompt."
+        }
         if limit.ceiling > 0 {
             instruction += " Stay within \(limit.ceiling) characters."
         }
