@@ -92,6 +92,7 @@ to diff against something else.
 | `rw many` | Just the counts: features / fixes / chores | no |
 | `rw blame` | Who changed what | no |
 | `rw branch` | Which branches fed into this change | no |
+| `rw align --product <id>` | Cross-port parity for two ports of the same product *(preview)* | no — slice 1 |
 | `rw help [topic]` | The built-in guide — `concepts`, `notes`, `providers`, `skill`, `config` | — |
 
 <sub>* …or run it key-free through an agent — see [Skill mode](#agent-skill-no-api-key).</sub>
@@ -244,10 +245,15 @@ mock model, so CI needs no key.
 
 Roadmap, in order:
 
-1. **Localization** — per-locale variants of the user-facing outputs, with
+1. **`rw align` (in flight)** — compare two native ports of the same product
+   (e.g. Ledgerly iOS in Swift and Ledgerly Android in Kotlin) and surface
+   parity gaps. Slice 1 (per-repo feature ledger extraction) is in this
+   release as a preview. Slice 2 adds the semantic matcher and tracker-agnostic
+   issue drafts; slice 3 adds the HTML parity matrix and the confirmation loop.
+2. **Localization** — per-locale variants of the user-facing outputs, with
    per-language store caps re-checked (translations routinely overflow a limit
    the English version cleared).
-2. **Multi-repo** — an `--all-repos` digest ("what did I touch across every repo
+3. **Multi-repo** — an `--all-repos` digest ("what did I touch across every repo
    this week"). Held back as the paid open-core layer.
 
 Releases are cut via a Homebrew formula built from a source tag.

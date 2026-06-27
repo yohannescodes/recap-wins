@@ -15,7 +15,7 @@ struct RW: ParsableCommand {
         discussion: "Run `rw help` for the full guide, or `rw help <topic>` "
             + "(concepts, commands, notes, providers, skill, config).",
         version: "0.2.0",
-        subcommands: [New.self, Notes.self, Market.self, Many.self, Blame.self, Branch.self, Help.self]
+        subcommands: [New.self, Notes.self, Market.self, Many.self, Blame.self, Branch.self, Align.self, Help.self]
     )
 
     @OptionGroup var options: ChangeSetOptions

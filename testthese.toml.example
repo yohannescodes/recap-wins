@@ -58,6 +58,23 @@ platform = "iOS"
 # hard ceilings above; the ceiling still hard-stops.
 targets = { asc_update = 300, gp_update = 250, what_new = 350 }
 
+# Port pair for `rw align --product ledgerly` (FRD). Uncomment when you have a
+# second port checked out; align compares the two ports' feature ledgers to
+# surface parity gaps. Currently in slice 1 (preview): builds both ledgers as
+# JSON. Slice 2 adds the semantic match; slice 3 the HTML parity matrix.
+# [product.ports]
+# a = { name = "ios", path = "../ledgerly-ios", base = "main" }
+# b = { name = "android", path = "../ledgerly-android", base = "main" }
+# since = "v1.0"   # port-start tag — features added before this are ignored
+
+# Curated parity equivalences. Confirmed once, never re-flagged as gaps.
+# Extends the built-in Apple↔Google table (Apple Pay ↔ Google Pay, etc.,
+# which lands with slice 2).
+# [[product.parity.equivalent]]
+# a = "Apple Pay checkout"
+# b = "Google Pay checkout"
+# note = "platform-native payment"
+
 [[product]]
 id = "dots"
 name = "DOTS"

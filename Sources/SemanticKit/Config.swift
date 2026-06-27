@@ -12,6 +12,13 @@ public struct ProductProfile: Sendable, Equatable {
     /// Soft editorial char targets the model AIMS for, per target (PRD §8). Keyed
     /// by the target's config name ("asc_update", "gp_update", "what_new").
     public var targets: [String: Int]
+    /// Optional port pair for `rw align` (FRD §8). When present, `rw align
+    /// --product <id>` uses this to find side A and side B.
+    public var ports: PortPair?
+    /// Curated parity equivalences for `rw align` (FRD §6/§8). Entries the
+    /// matcher should treat as already-aligned platform-native substitutes
+    /// (Apple Pay ↔ Google Pay), so they stop showing up as gaps.
+    public var parityEquivalent: [ParityEntry]
 
     public init(
         id: String,
@@ -19,7 +26,9 @@ public struct ProductProfile: Sendable, Equatable {
         voice: String,
         links: [String],
         platform: Platform = .iOS,
-        targets: [String: Int] = [:]
+        targets: [String: Int] = [:],
+        ports: PortPair? = nil,
+        parityEquivalent: [ParityEntry] = []
     ) {
         self.id = id
         self.name = name
@@ -27,6 +36,8 @@ public struct ProductProfile: Sendable, Equatable {
         self.links = links
         self.platform = platform
         self.targets = targets
+        self.ports = ports
+        self.parityEquivalent = parityEquivalent
     }
 
     /// The soft target (chars) for a note target, or nil if none configured.
@@ -38,6 +49,62 @@ public struct ProductProfile: Sendable, Equatable {
         case .changelog: return targets["changelog"] ?? 1500
         case .pr, .ascReviewer: return nil
         }
+    }
+}
+
+/// One side of a port pair (FRD §8 `[product.ports]`). A pointer to where the
+/// repo lives, what ref to read it at, and a stable name for the side.
+public struct PortRef: Sendable, Equatable {
+    /// Stable label for this side ("ios", "android"). Used in output and issue
+    /// drafts to say which side a gap is on.
+    public var name: String
+    /// Filesystem path to the repository (absolute or relative to the config).
+    public var path: String
+    /// Ref to read the ledger at — typically a branch name. Default "main"
+    /// matches the rest of the tool.
+    public var base: String
+
+    public init(name: String, path: String, base: String = "main") {
+        self.name = name
+        self.path = path
+        self.base = base
+    }
+}
+
+/// A configured port pair (FRD §8). `rw align --product <id>` reads this to
+/// know which two repos to compare.
+public struct PortPair: Sendable, Equatable {
+    public var a: PortRef
+    public var b: PortRef
+    /// Baseline ref both ports use (e.g. a port-start tag like "v1.0"). When
+    /// set, only features added since this baseline are considered — so old
+    /// parity from before the second port even existed doesn't get re-surfaced
+    /// every run (FRD §11 "Baseline choice").
+    public var since: String?
+
+    public init(a: PortRef, b: PortRef, since: String? = nil) {
+        self.a = a
+        self.b = b
+        self.since = since
+    }
+}
+
+/// One curated parity equivalence (FRD §6/§8): a feature on side A and the
+/// platform-native substitute on side B that the matcher should treat as
+/// parity *achieved*, not a gap. Extends the built-in Apple↔Google table.
+public struct ParityEntry: Sendable, Equatable, Codable {
+    /// Feature title (or canonical name) on side A.
+    public var a: String
+    /// Feature title (or canonical name) on side B.
+    public var b: String
+    /// Optional short note explaining why these are equivalent. Shown in the
+    /// matcher's `equivalenceNote` field so users can audit decisions.
+    public var note: String?
+
+    public init(a: String, b: String, note: String? = nil) {
+        self.a = a
+        self.b = b
+        self.note = note
     }
 }
 
@@ -105,34 +172,111 @@ public struct Config: Sendable, Equatable {
     }
 
     /// Which table the parser is currently inside.
+    ///
+    /// `productPorts` and `productParityEquivalent` attach to the most-recent
+    /// `[[product]]` block — they're sub-tables of the current product, FRD §8.
+    /// The parser keeps the in-flight product fields in `productFields` and
+    /// accumulates ports/parity into local buffers until we flush the product.
     private enum Table {
         case top
         case product
+        case productPorts
+        case productParityEquivalent
         case limitsManifest
         case reviewNoteLimits
         case marketLimits
         case other
     }
 
+    /// Mutable scratch state for the product being built. Keeps the parser's
+    /// row-by-row pass simple while letting nested sub-tables (`[product.ports]`,
+    /// `[[product.parity.equivalent]]`) attach to the right product.
+    private struct ProductScratch {
+        var fields: [String: TOMLValue] = [:]
+        var portA: PortRef?
+        var portB: PortRef?
+        var portsSince: String?
+        var parity: [ParityEntry] = []
+        /// True once we've seen any data for the in-flight product — used to
+        /// decide whether to flush. A bare `[[product]]` with nothing under it
+        /// stays unflushed (and gets dropped at flush time anyway by the
+        /// id/name guard).
+        var isActive = false
+    }
+
     /// Parse the supported subset of the TOML config. A focused reader rather
-    /// than a TOML dependency, matching the file shape in PRD §8.
+    /// than a TOML dependency, matching the file shape in PRD §8 + FRD §8.
     public static func parse(_ toml: String) throws -> Config {
         var config = Config()
         var products: [ProductProfile] = []
         var table: Table = .top
         var current: [String: TOMLValue] = [:]
+        var product = ProductScratch()
+        // The ports/parity tables are populated row-by-row, but a single
+        // `[product.ports]` block has multiple a/b/since rows. Buffer the
+        // current ports block's rows here.
+        var portsRows: [String: TOMLValue] = [:]
+        var parityRows: [String: TOMLValue] = [:]
+
+        func flushPortsBlock() {
+            // a = { name = "ios", path = "...", base = "main" }
+            if let aTable = portsRows["a"]?.stringTable,
+               let aName = aTable["name"], let aPath = aTable["path"] {
+                product.portA = PortRef(
+                    name: aName, path: aPath, base: aTable["base"] ?? "main")
+            }
+            if let bTable = portsRows["b"]?.stringTable,
+               let bName = bTable["name"], let bPath = bTable["path"] {
+                product.portB = PortRef(
+                    name: bName, path: bPath, base: bTable["base"] ?? "main")
+            }
+            product.portsSince = portsRows["since"]?.string ?? product.portsSince
+            portsRows = [:]
+        }
+
+        func flushParityBlock() {
+            // a = "Apple Pay checkout"
+            // b = "Google Pay checkout"
+            // note = "platform-native payment"
+            if let a = parityRows["a"]?.string, let b = parityRows["b"]?.string {
+                product.parity.append(ParityEntry(
+                    a: a, b: b, note: parityRows["note"]?.string))
+            }
+            parityRows = [:]
+        }
 
         func flushProduct() {
-            guard let id = current["id"]?.string, let name = current["name"]?.string else { return }
-            let platform: Platform = current["platform"]?.string.flatMap(Platform.init(rawValue:)) ?? .iOS
+            // Flush any pending sub-table rows that haven't been finalized.
+            if !portsRows.isEmpty { flushPortsBlock() }
+            if !parityRows.isEmpty { flushParityBlock() }
+            guard let id = product.fields["id"]?.string,
+                  let name = product.fields["name"]?.string else {
+                // Reset scratch even if we drop this product, so the next one
+                // doesn't inherit stale state.
+                product = ProductScratch()
+                return
+            }
+            let platform: Platform = product.fields["platform"]?.string
+                .flatMap(Platform.init(rawValue:)) ?? .iOS
+            // A valid pair needs both sides; if either is missing, ports are
+            // dropped (a half-configured pair would just be confusing).
+            let pair: PortPair?
+            if let a = product.portA, let b = product.portB {
+                pair = PortPair(a: a, b: b, since: product.portsSince)
+            } else {
+                pair = nil
+            }
             products.append(ProductProfile(
                 id: id,
                 name: name,
-                voice: current["voice"]?.string ?? "",
-                links: current["links"]?.stringArray ?? [],
+                voice: product.fields["voice"]?.string ?? "",
+                links: product.fields["links"]?.stringArray ?? [],
                 platform: platform,
-                targets: current["targets"]?.intTable ?? [:]
+                targets: product.fields["targets"]?.intTable ?? [:],
+                ports: pair,
+                parityEquivalent: product.parity
             ))
+            product = ProductScratch()
         }
 
         for rawLine in toml.split(separator: "\n", omittingEmptySubsequences: false) {
@@ -141,10 +285,33 @@ public struct Config: Sendable, Equatable {
 
             // Table header.
             if line.hasPrefix("[") {
-                if table == .product { flushProduct() }
+                // Sub-tables of the current product DON'T flush it; siblings do.
+                switch line {
+                case "[product.ports]":
+                    // A new ports block flushes the previous (only one per product
+                    // is meaningful — last one wins if a user repeats).
+                    if !portsRows.isEmpty { flushPortsBlock() }
+                    table = .productPorts
+                    current = [:]
+                    product.isActive = true
+                    continue
+                case "[[product.parity.equivalent]]":
+                    // Each [[...]] starts a new entry — flush the previous.
+                    if !parityRows.isEmpty { flushParityBlock() }
+                    table = .productParityEquivalent
+                    current = [:]
+                    product.isActive = true
+                    continue
+                default:
+                    break
+                }
+                // Anything else is a sibling — finalize the in-flight product.
+                if product.isActive { flushProduct() }
                 current = [:]
                 switch line {
-                case "[[product]]": table = .product
+                case "[[product]]":
+                    table = .product
+                    product.isActive = true
                 case "[limits_manifest]": table = .limitsManifest
                 case "[review_notes.limits]": table = .reviewNoteLimits
                 case "[market.limits]": table = .marketLimits
@@ -161,7 +328,11 @@ public struct Config: Sendable, Equatable {
 
             switch table {
             case .product:
-                current[key] = value
+                product.fields[key] = value
+            case .productPorts:
+                portsRows[key] = value
+            case .productParityEquivalent:
+                parityRows[key] = value
             case .limitsManifest:
                 switch key {
                 case "url": config.limitsManifestURL = value.string
@@ -199,8 +370,11 @@ public struct Config: Sendable, Equatable {
             case .other:
                 break
             }
+            _ = current  // touched to keep the local around for parity with prior versions
         }
-        if table == .product { flushProduct() }
+        // End of file: flush any in-flight ports/parity row buffers and the
+        // current product, if any.
+        if product.isActive { flushProduct() }
         config.products = products
         return config
     }
@@ -257,6 +431,23 @@ private struct TOMLValue {
             guard let eq = pair.firstIndex(of: "=") else { continue }
             let k = pair[..<eq].trimmingCharacters(in: .whitespaces)
             let v = Int(pair[pair.index(after: eq)...].trimmingCharacters(in: .whitespaces))
+            if let v { table[k] = v }
+        }
+        return table
+    }
+
+    /// An inline table of strings, e.g. `{ name = "ios", path = "../ios" }`.
+    /// Tolerant: ignores unquoted keys, requires quoted string values. Used by
+    /// the `[product.ports]` block to read the `a` and `b` port refs.
+    var stringTable: [String: String]? {
+        let t = raw.trimmingCharacters(in: .whitespaces)
+        guard t.hasPrefix("{") && t.hasSuffix("}") else { return nil }
+        let inner = t.dropFirst().dropLast()
+        var table: [String: String] = [:]
+        for pair in inner.split(separator: ",") {
+            guard let eq = pair.firstIndex(of: "=") else { continue }
+            let k = pair[..<eq].trimmingCharacters(in: .whitespaces)
+            let v = TOMLValue(parsing: String(pair[pair.index(after: eq)...])).string
             if let v { table[k] = v }
         }
         return table
