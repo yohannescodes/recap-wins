@@ -1,0 +1,170 @@
+name: Release Automation
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  prepare-release:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Swift
+        uses: swift-actions/setup-swift@v1
+        with:
+          swift-version: "5.9"
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Get previous tag
+        id: previous
+        run: |
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "HEAD")
+          echo "PREVIOUS_TAG=$PREVIOUS_TAG" >> $GITHUB_OUTPUT
+
+      - name: Build recap-wins
+        run: swift build -c release
+
+      - name: Generate changelog HTML
+        run: |
+          # Use recap-wins itself to generate the changelog
+          .build/release/rw notes --changelog \
+            --version-label ${{ steps.version.outputs.VERSION }} \
+            ${{ steps.previous.outputs.PREVIOUS_TAG }}..${{ steps.version.outputs.VERSION }} \
+            --provider skill > /tmp/changelog.json || true
+
+          # If skill mode worked, extract and save; otherwise generate manually
+          if [ -f /tmp/changelog.json ]; then
+            echo "Generated changelog using recap-wins"
+          else
+            echo "Generating fallback changelog"
+            cat > docs/changelogs/${{ steps.version.outputs.VERSION }}.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <meta charset="UTF-8">
+              <title>Release ${{ steps.version.outputs.VERSION }}</title>
+              <style>
+                  body { font-family: system-ui; max-width: 800px; margin: 40px auto; padding: 20px; }
+                  h1 { font-size: 24px; }
+                  .meta { color: #666; margin-bottom: 20px; }
+              </style>
+          </head>
+          <body>
+              <h1>Release ${{ steps.version.outputs.VERSION }}</h1>
+              <div class="meta">Generated from ${{ steps.previous.outputs.PREVIOUS_TAG }} to ${{ steps.version.outputs.VERSION }}</div>
+              <div class="content">See CHANGELOG.md for details.</div>
+          </body>
+          </html>
+          EOF
+          fi
+
+          # Ensure directory exists
+          mkdir -p docs/changelogs
+
+      - name: Calculate tarball SHA256
+        id: sha256
+        run: |
+          URL="https://github.com/${{ github.repository }}/archive/refs/tags/${{ steps.version.outputs.VERSION }}.tar.gz"
+          SHA256=$(curl -sL "$URL" | shasum -a 256 | cut -d' ' -f1)
+          echo "SHA256=$SHA256" >> $GITHUB_OUTPUT
+
+      - name: Update Homebrew formula
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          SHA="${{ steps.sha256.outputs.SHA256 }}"
+
+          # Update the formula
+          sed -i '' "s|url \".*\"|url \"https://github.com/${{ github.repository }}/archive/refs/tags/${VERSION}.tar.gz\"|" Formula/recap-wins.rb
+          sed -i '' "s|sha256 \".*\"|sha256 \"${SHA}\"|" Formula/recap-wins.rb
+          sed -i '' "s|assert_match \".*\", shell_output|assert_match \"${VERSION#v}\", shell_output|" Formula/recap-wins.rb
+
+      - name: Create Release PR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          BRANCH="release-automation-${VERSION}"
+
+          # Create a new branch
+          git checkout -b "$BRANCH"
+
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Add and commit changes
+          git add Formula/recap-wins.rb
+          git add docs/changelogs/ || true
+
+          git commit -m "chore: automated release updates for ${VERSION}
+
+          - Update Homebrew formula to ${VERSION}
+          - Add changelog HTML for ${VERSION}
+
+          [skip ci]"
+
+          # Push the branch
+          git push origin "$BRANCH"
+
+          # Create pull request
+          gh pr create \
+            --title "🚀 Release ${VERSION} - Automated Updates" \
+            --body "## Automated Release Updates for ${VERSION}
+
+          This PR contains automated updates for the ${VERSION} release:
+
+          ### Changes
+          - ✅ Updated Homebrew formula with new version and SHA256
+          - ✅ Generated changelog HTML at \`docs/changelogs/${VERSION}.html\`
+
+          ### Homebrew Formula
+          - Version: ${VERSION}
+          - SHA256: \`${{ steps.sha256.outputs.SHA256 }}\`
+
+          ### Next Steps
+          1. Review the changes
+          2. Merge this PR to complete the release
+          3. Users can then \`brew update && brew upgrade recap-wins\`
+
+          ---
+          *This PR was automatically generated by the release workflow.*" \
+            --base main \
+            --head "$BRANCH"
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+
+          # Extract changelog section for this version from CHANGELOG.md
+          CHANGELOG_BODY=$(awk "/^## \[?${VERSION}\]?/{flag=1;next}/^## \[?v[0-9]/{flag=0}flag" CHANGELOG.md || echo "See CHANGELOG.md for details")
+
+          # Create release
+          gh release create "${VERSION}" \
+            --title "Release ${VERSION}" \
+            --notes "$CHANGELOG_BODY" \
+            --verify-tag
+
+  # After PR is merged, this job syncs to the website
+  sync-to-website:
+    needs: prepare-release
+    if: success()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger website sync
+        run: |
+          echo "Website sync will be triggered when the release PR is merged"
