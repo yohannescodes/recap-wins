@@ -156,6 +156,9 @@ rw vitals --html --open   # vitals as a self-contained HTML page
 | `rw notes <target>` | write a review/release note | semantic |
 | `rw market --product <id>` | a marketing content pack in the product's voice | semantic |
 | `rw align --product <id>` | cross-port parity — matcher, HTML matrix (`--html`), drafted issues, `--confirm` loop | semantic |
+| `rw draft <from> <to>` | generate drafts (PR, changelog) from commit comparison | semantic |
+| `rw release-notes <from> <to>` | generate release notes for app stores from commit comparison | semantic |
+| `rw marketing <from> <to>` | generate marketing copy from commit comparison | semantic |
 | `rw help [topic]` | the built-in guide | — |
 
 Global flags on every subcommand: `--repo`, `--base`, `--head`, `--json` (emit
@@ -243,6 +246,103 @@ no-op. Run `align` first to see the match ids, then `--confirm` the one
 you want to lock in.
 
 #### Issue formats (`--issues`)
+
+### Commit Comparison Commands
+
+The comparison commands (`rw draft`, `rw release-notes`, `rw marketing`) generate
+content from any two commits, not just your current branch vs base. These are
+useful for:
+
+- Generating PR descriptions after the fact
+- Creating release notes between version tags
+- Producing marketing copy for specific releases
+- Documenting changes between any two points in history
+
+#### `rw draft`
+
+Generate various draft documents from commit comparison:
+
+```sh
+# PR descriptions
+rw draft v1.0.0 v2.0.0 --type pr
+rw draft HEAD~10 HEAD --type pr --provider skill
+
+# Changelogs
+rw draft main..release-branch --type changelog
+rw draft tag-v1.0..tag-v2.0 --type changelog --html
+
+# Summary documents
+rw draft origin/main HEAD --type summary
+```
+
+Options:
+- `--type`: `pr` (default), `changelog`, or `summary`
+- `--provider`: `anthropic`, `gemini`, or `skill`
+- `--api-key`: Override API key if not in environment
+- `--skill`: Path to local skill file
+- `--html` / `--json`: Output format
+
+#### `rw release-notes`
+
+Generate store-specific release notes:
+
+```sh
+# App Store release notes
+rw release-notes v1.0.0..v2.0.0 --platform app-store --product myapp
+rw release-notes main HEAD --platform app-store --product myapp --limit 3900
+
+# Google Play release notes
+rw release-notes tag-v1 tag-v2 --platform play-store --product myapp
+
+# TestFlight notes
+rw release-notes HEAD~5..HEAD --platform testflight --product myapp
+```
+
+Options:
+- `--platform`: `testflight` (default), `app-store`, or `play-store`
+- `--product`: Product ID for voice and platform settings (required for stores)
+- `--limit`: Character limit override
+- `--provider` / `--api-key` / `--skill`: Same as `draft`
+
+#### `rw marketing`
+
+Generate marketing copy in various formats:
+
+```sh
+# Blog posts
+rw marketing v0.9.0..v1.0.0 --format blog
+
+# Social media
+rw marketing main..feature-branch --format social
+rw marketing HEAD~10 HEAD --format social --product myapp
+
+# Email announcements
+rw marketing tag-beta..tag-release --format email
+
+# General announcements
+rw marketing origin/main HEAD --format announcement --provider skill
+```
+
+Options:
+- `--format`: `announcement` (default), `blog`, `social`, or `email`
+- `--product`: Product ID for voice and branding
+- All standard provider and output options
+
+#### Commit Range Syntax
+
+All comparison commands support two ways to specify commits:
+
+1. **Two separate arguments**: `rw draft commit1 commit2`
+2. **Range syntax**: `rw draft commit1..commit2`
+
+Both work with:
+- Commit SHAs: `abc123..def456`
+- Tags: `v1.0.0..v2.0.0`
+- Branches: `main..feature-branch`
+- References: `HEAD~10..HEAD`, `origin/main..HEAD`
+- Mix and match: `tag-v1..HEAD`, `abc123..main`
+
+The range syntax is especially useful for version tags that contain dots.
 
 The matcher's `IssueDraft` body is canonical Markdown. `--issues` layers
 on tracker-flavored wrappers without any API call: `markdown` (default),

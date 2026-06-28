@@ -93,6 +93,9 @@ to diff against something else.
 | `rw blame` | Who changed what | no |
 | `rw branch` | Which branches fed into this change | no |
 | `rw align --product <id>` | Cross-port parity: matcher, HTML matrix (`--html`), drafted issues, `--confirm` loop | yes\* |
+| `rw draft <from> <to>` | Generate drafts (PR, changelog) from commit comparison | yes\* |
+| `rw release-notes <from> <to>` | Generate release notes for app stores from commit comparison | yes\* |
+| `rw marketing <from> <to>` | Generate marketing copy from commit comparison | yes\* |
 | `rw help [topic]` | The built-in guide — `concepts`, `notes`, `providers`, `skill`, `config` | — |
 
 <sub>* …or run it key-free through an agent — see [Skill mode](#agent-skill-no-api-key).</sub>
@@ -176,6 +179,33 @@ release-note block; `market` is the broader announcement set.
 
 Copy [`testthese.toml.example`](testthese.toml.example) to `testthese.toml` to
 configure the base ref, model, provider, and product profiles.
+
+### Comparing arbitrary commits
+
+The new comparison commands (`draft`, `release-notes`, `marketing`) let you
+generate content from any two commits, not just branch vs base:
+
+```sh
+# Compare two commits directly
+rw draft v1.0.0 v2.0.0 --type pr           # Generate PR description for a release
+rw draft HEAD~10 HEAD --type changelog     # Changelog for last 10 commits
+
+# Use range syntax (commit1..commit2)
+rw release-notes v1.0.0..v2.0.0 --platform app-store
+rw marketing main..feature-branch --format blog
+
+# Compare tags, branches, or any git references
+rw draft origin/main HEAD --provider skill
+rw release-notes tag-v1..tag-v2 --platform testflight --product myapp
+
+# With API providers
+rw marketing v0.9.0..v1.0.0 --provider anthropic --format social
+rw draft abc123..def456 --api-key sk-xxxxx --type summary
+```
+
+These commands support all the same providers and output formats as the existing
+commands — use `--provider skill` for key-free operation, `--html` for styled
+output, or `--json` for raw data.
 
 `rw notes` takes exactly one target. The user-facing store targets
 (`--asc-update`, `--gp-update`, `--what-new`) pull voice and a soft length aim

@@ -14,6 +14,20 @@ HTML there are generated from the same prose at release time
 
 ---
 
+## [v0.3.1](docs/changelogs/v0.3.1.html) — 2026-06-28
+
+### Added
+
+- **New commit comparison commands** — `rw draft`, `rw release-notes`, and `rw marketing` generate content from any two commits, not just branch vs base. Perfect for creating PR descriptions after the fact, generating release notes between version tags, or producing marketing copy for specific releases.
+- **Flexible commit range syntax** — All comparison commands support both `commit1 commit2` and `commit1..commit2` syntax, working with tags, branches, SHAs, and any git reference.
+- **Full provider support** — New commands work with all existing providers (Anthropic, Gemini, skill mode) and output formats (markdown, HTML, JSON).
+
+### Changed
+
+- **Documentation expanded** — README and GUIDE now include comprehensive examples for the new comparison commands, showing use cases from release notes to marketing copy generation.
+
+---
+
 ## [v0.3.0](docs/changelogs/v0.3.0.html) — 2026-06-27
 
 ### Added
