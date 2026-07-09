@@ -14,6 +14,23 @@ HTML there are generated from the same prose at release time
 
 ---
 
+## [v0.3.2](docs/changelogs/v0.3.2.html) — 2026-07-09
+
+### Fixed
+
+- **Gemini default model 404** — Google retired `gemini-2.0-flash` on June 1, 2026, so every default-config run with `--provider gemini` failed with HTTP 404 on `rw new`, `rw notes`, `rw market`, and `rw draft`. The default is now `gemini-3.5-flash`: GA, no announced shutdown, and pinned rather than a `-latest` alias so a released binary never depends on an experimental endpoint. Deterministic commands (`rw`, `rw many`, `rw blame`, `--json`) never call a model and were unaffected.
+
+### Changed
+
+- **Example config names the real default** — `testthese.toml.example` now says which model Gemini falls back to (`gemini-3.5-flash`) and shows the explicit-pin syntax, instead of describing the auto-swap abstractly.
+- **CI guards the default model id** — a new test pins `GeminiClient.defaultModel`, so a silent regression to a retired model trips CI instead of a user's terminal.
+
+### Upgrade notes
+
+- On older binaries (≤ v0.3.1) you can fix the Gemini path without upgrading: set `model = "gemini-3.5-flash"` in `testthese.toml`. Any explicit model skips the default swap entirely.
+
+---
+
 ## [v0.3.1](docs/changelogs/v0.3.1.html) — 2026-06-28
 
 ### Added
