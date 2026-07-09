@@ -70,8 +70,17 @@ struct ProviderTests {
     func geminiWireShape() throws {
         // Build a client and confirm it encodes without error (smoke of the
         // wire format); a full network test needs a live key.
-        let client = GeminiClient(apiKey: "k", model: "gemini-2.0-flash")
-        #expect(client.model == "gemini-2.0-flash")
+        let client = GeminiClient(apiKey: "k", model: "gemini-2.5-pro")
+        #expect(client.model == "gemini-2.5-pro")
         #expect(client.apiKey == "k")
+    }
+
+    @Test("Gemini default model is the pinned, current GA id")
+    func geminiDefaultModelPinned() {
+        // Guard against a silent regression to a retired model id: Google shut
+        // down gemini-2.0-flash on 2026-06-01, turning the old default into a
+        // hard 404 for every default-config Gemini run.
+        #expect(GeminiClient.defaultModel == "gemini-3.5-flash")
+        #expect(!GeminiClient.defaultModel.isEmpty)
     }
 }

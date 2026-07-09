@@ -14,7 +14,9 @@ public struct GeminiClient: ModelClient {
     public let baseURL: URL
     private let session: URLSession
 
-    public static let defaultModel = "gemini-2.0-flash"
+    /// Pinned GA model, not the `-latest` alias — aliases can resolve to
+    /// experimental endpoints with tighter rate limits and unstable availability.
+    public static let defaultModel = "gemini-3.5-flash"
 
     public init(
         apiKey: String,
