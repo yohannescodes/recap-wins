@@ -5,8 +5,9 @@
 base = "main"
 
 # Model for the semantic commands in API mode. Leave the Anthropic default and
-# switch provider to "gemini" and rw uses a Gemini default model automatically;
-# or set an explicit model id for whichever provider you choose.
+# switch provider to "gemini" and rw uses a Gemini default model automatically
+# (currently gemini-3.5-flash); or set an explicit model id for whichever
+# provider you choose, e.g. model = "gemini-3.5-flash".
 model = "claude-sonnet-4-6"
 
 # Which backend writes the prose. --provider on the command line overrides this.
