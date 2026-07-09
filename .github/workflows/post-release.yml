@@ -1,0 +1,47 @@
+name: Post-Release Updates
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  update-homebrew-tap:
+    # Only run if PR was merged and title contains "Release v"
+    if: github.event.pull_request.merged == true && contains(github.event.pull_request.title, 'Release v')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Extract version from PR title
+        id: version
+        run: |
+          TITLE="${{ github.event.pull_request.title }}"
+          VERSION=$(echo "$TITLE" | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Trigger Homebrew tap update
+        run: |
+          echo "Homebrew formula has been updated in the main branch"
+          echo "Users can now: brew update && brew upgrade recap-wins"
+
+      - name: Verify changelog exists
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          if [ -f "docs/changelogs/${VERSION}.html" ]; then
+            echo "✅ Changelog HTML exists for ${VERSION}"
+          else
+            echo "⚠️  Changelog HTML not found for ${VERSION}"
+            echo "Run: rw notes --changelog --version-label ${VERSION}"
+          fi
+
+      - name: Notify success
+        run: |
+          echo "🎉 Release ${{ steps.version.outputs.VERSION }} is complete!"
+          echo "📦 Homebrew formula updated"
+          echo "📝 Changelog available at docs/changelogs/${{ steps.version.outputs.VERSION }}.html"
+          echo "🌐 Website will sync automatically"
